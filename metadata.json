@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Buku Catatan Toko Minimalis",
+  "description": "Pencatatan kas harian, utang-piutang, dan ringkasan kesehatan alur bisnis toko secara disiplin dan praktis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
