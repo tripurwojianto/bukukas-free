@@ -50,6 +50,10 @@ export default function CreditDebtModule({
   // Tabs: 'piutang' (pelanggan berutang) or 'utang' (kita berutang ke supplier)
   const [activeTab, setActiveTab] = useState<'piutang' | 'utang'>(defaultTab || 'piutang');
 
+  // Incremental rendering and load-more limits
+  const [visibleLimitReceivables, setVisibleLimitReceivables] = useState(10);
+  const [visibleLimitPayables, setVisibleLimitPayables] = useState(10);
+
   React.useEffect(() => {
     if (defaultTab) {
       setActiveTab(defaultTab);
@@ -631,7 +635,7 @@ export default function CreditDebtModule({
                   Belum ada catatan piutang pelanggan.
                 </div>
               ) : (
-                receivables.map((item) => {
+                receivables.slice(0, visibleLimitReceivables).map((item) => {
                   const rem = item.amount - item.paidAmount;
                   const { text: dueText, isOverdue } = getRelativeDueDate(item.dueDate);
                   const isPaying = payingItemId === item.id && payingItemType === 'piutang';
@@ -795,6 +799,18 @@ export default function CreditDebtModule({
                   );
                 })
               )}
+
+              {receivables.length > visibleLimitReceivables && (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleLimitReceivables(prev => prev + 10)}
+                    className="inline-flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-md shadow-2xs cursor-pointer transition-all active:scale-95 font-sans"
+                  >
+                    Tampilkan Lebih Banyak ({receivables.length - visibleLimitReceivables} Piutang Tersisa)
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -924,7 +940,7 @@ export default function CreditDebtModule({
                   Belum ada catatan utang toko ke supplier.
                 </div>
               ) : (
-                payables.map((item) => {
+                payables.slice(0, visibleLimitPayables).map((item) => {
                   const rem = item.amount - item.paidAmount;
                   const { text: dueText, isOverdue } = getRelativeDueDate(item.dueDate);
                   const isPaying = payingItemId === item.id && payingItemType === 'utang';
@@ -1087,6 +1103,18 @@ export default function CreditDebtModule({
                     </div>
                   );
                 })
+              )}
+
+              {payables.length > visibleLimitPayables && (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleLimitPayables(prev => prev + 10)}
+                    className="inline-flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-md shadow-2xs cursor-pointer transition-all active:scale-95 font-sans"
+                  >
+                    Tampilkan Lebih Banyak ({payables.length - visibleLimitPayables} Utang Tersisa)
+                  </button>
+                </div>
               )}
             </div>
           </div>

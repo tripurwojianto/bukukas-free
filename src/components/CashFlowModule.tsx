@@ -18,7 +18,8 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  FileDown
+  FileDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { Transaction, DailyCashSession, Product } from '../types';
 import { formatRupiah, getFormattedDate } from '../utils/helpers';
@@ -79,6 +80,37 @@ export default function CashFlowModule({
   const [hpp, setHpp] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [productQty, setProductQty] = useState('');
+
+  // Incremental loading limit for transactions
+  const [visibleLimit, setVisibleLimit] = useState(15);
+
+  // Sorting state for transactions table
+  const [sortField, setSortField] = useState<'time' | 'amount' | 'category' | 'description' | null>('time');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: 'time' | 'amount' | 'category' | 'description') => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: 'time' | 'amount' | 'category' | 'description') => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-300 shrink-0" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ChevronUp className="w-3 h-3 text-slate-800 shrink-0 animate-fade-in" />;
+    }
+    return <ChevronDown className="w-3 h-3 text-slate-800 shrink-0 animate-fade-in" />;
+  };
+
+  // Reset pagination limit when date changes
+  React.useEffect(() => {
+    setVisibleLimit(15);
+  }, [selectedDate]);
 
   // Local state to edit cash register opening values
   const [editingOpening, setEditingOpening] = useState(false);
@@ -552,6 +584,38 @@ export default function CashFlowModule({
       };
     });
   }, [filteredTx, initialPhysical]);
+
+  // Sort ledger data for presentation
+  const sortedLedgerData = useMemo(() => {
+    if (!sortField) return ledgerData;
+
+    const sorted = [...ledgerData];
+    sorted.sort((a, b) => {
+      let valA: any = a[sortField];
+      let valB: any = b[sortField];
+
+      // Special cases for comparison
+      if (sortField === 'amount') {
+        valA = a.amount;
+        valB = b.amount;
+      } else if (sortField === 'category') {
+        valA = a.category === 'rutin' ? 'Rutin' : 'Tak Terduga';
+        valB = b.category === 'rutin' ? 'Rutin' : 'Tak Terduga';
+      } else if (sortField === 'description') {
+        valA = a.description.toLowerCase();
+        valB = b.description.toLowerCase();
+      } else if (sortField === 'time') {
+        valA = a.time;
+        valB = b.time;
+      }
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [ledgerData, sortField, sortDirection]);
 
   // Totals
   const totalMasuk = filteredTx
@@ -1434,12 +1498,60 @@ export default function CashFlowModule({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-[9px] font-mono font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-200">
-                  <th className="py-1.5 px-3 w-16 text-center">Waktu</th>
-                  <th className="py-1.5 px-3">Keterangan / Kategori</th>
-                  <th className="py-1.5 px-3 text-right">Masuk (+)</th>
-                  <th className="py-1.5 px-3 text-right">Keluar (-)</th>
-                  <th className="py-1.5 px-3 text-right">Sisa Saldo</th>
-                  <th className="py-1.5 px-3 w-10 text-center">Aksi</th>
+                  <th 
+                    className="py-2 px-3 w-20 text-center cursor-pointer select-none hover:bg-slate-100 hover:text-slate-850 transition-colors"
+                    onClick={() => handleSort('time')}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Waktu</span>
+                      {getSortIcon('time')}
+                    </div>
+                  </th>
+                  <th className="py-2 px-3 select-none">
+                    <div className="flex items-center gap-4">
+                      <button 
+                        type="button" 
+                        onClick={() => handleSort('description')}
+                        className={`flex items-center gap-1 font-mono font-bold text-[9px] uppercase tracking-wider hover:text-slate-800 focus:outline-none cursor-pointer transition-colors ${
+                          sortField === 'description' ? 'text-slate-900' : 'text-slate-400'
+                        }`}
+                      >
+                        <span>Keterangan</span>
+                        {getSortIcon('description')}
+                      </button>
+                      <span className="text-slate-300">/</span>
+                      <button 
+                        type="button" 
+                        onClick={() => handleSort('category')}
+                        className={`flex items-center gap-1 font-mono font-bold text-[9px] uppercase tracking-wider hover:text-slate-800 focus:outline-none cursor-pointer transition-colors ${
+                          sortField === 'category' ? 'text-slate-900' : 'text-slate-400'
+                        }`}
+                      >
+                        <span>Kategori</span>
+                        {getSortIcon('category')}
+                      </button>
+                    </div>
+                  </th>
+                  <th 
+                    className="py-2 px-3 text-right cursor-pointer select-none hover:bg-slate-100 hover:text-slate-850 transition-colors"
+                    onClick={() => handleSort('amount')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Masuk (+)</span>
+                      {getSortIcon('amount')}
+                    </div>
+                  </th>
+                  <th 
+                    className="py-2 px-3 text-right cursor-pointer select-none hover:bg-slate-100 hover:text-slate-850 transition-colors"
+                    onClick={() => handleSort('amount')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Keluar (-)</span>
+                      {getSortIcon('amount')}
+                    </div>
+                  </th>
+                  <th className="py-2 px-3 text-right">Sisa Saldo</th>
+                  <th className="py-2 px-3 w-10 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -1453,7 +1565,7 @@ export default function CashFlowModule({
                     </td>
                   </tr>
                 ) : (
-                  ledgerData.map((tx, idx) => {
+                  sortedLedgerData.slice(0, visibleLimit).map((tx, idx) => {
                     const isIncome = tx.type === 'masuk';
                     const isRoutine = tx.category === 'rutin';
 
@@ -1515,6 +1627,19 @@ export default function CashFlowModule({
               </tbody>
             </table>
           </div>
+
+          {/* Load More Button for Incremental Fetch */}
+          {ledgerData.length > visibleLimit && (
+            <div className="p-3 bg-white border-t border-slate-100 text-center">
+              <button
+                type="button"
+                onClick={() => setVisibleLimit(prev => prev + 15)}
+                className="inline-flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-md shadow-2xs cursor-pointer transition-all active:scale-95"
+              >
+                Tampilkan Lebih Banyak ({ledgerData.length - visibleLimit} Transaksi Tersisa)
+              </button>
+            </div>
+          )}
 
           {/* Table Footer Summary info */}
           {ledgerData.length > 0 && (

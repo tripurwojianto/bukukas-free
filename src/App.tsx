@@ -33,7 +33,9 @@ import {
   BookOpen,
   Bell,
   ArrowUpRight,
-  ArrowDownLeft
+  ArrowDownLeft,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { LocalData, DailyCashSession, Transaction, Receivable, Payable, BankWalletAccount, BankWalletMutation, Product, StockHistory, AppSettings } from './types';
 import { getTodayDateString, getFormattedDate, formatRupiah } from './utils/helpers';
@@ -45,15 +47,28 @@ import { findSpreadsheet, createSpreadsheet, syncLocalDataToSheets, downloadData
 
 // Import modules
 import DashboardModule from './components/DashboardModule';
-import CashFlowModule from './components/CashFlowModule';
-import CreditDebtModule from './components/CreditDebtModule';
-import BusinessHealthSummary from './components/BusinessHealthSummary';
-import BankWalletModule from './components/BankWalletModule';
-import InventoryModule from './components/InventoryModule';
-import SuperAdminSettingsModule from './components/SuperAdminSettingsModule';
-import AiAgentModule from './components/AiAgentModule';
-import PremiumHubModule from './components/PremiumHubModule';
-import DeveloperConsoleModule from './components/DeveloperConsoleModule';
+
+// Lazy load non-essential modules to optimize initial load
+const CashFlowModule = React.lazy(() => import('./components/CashFlowModule'));
+const CreditDebtModule = React.lazy(() => import('./components/CreditDebtModule'));
+const BusinessHealthSummary = React.lazy(() => import('./components/BusinessHealthSummary'));
+const BankWalletModule = React.lazy(() => import('./components/BankWalletModule'));
+const InventoryModule = React.lazy(() => import('./components/InventoryModule'));
+const SuperAdminSettingsModule = React.lazy(() => import('./components/SuperAdminSettingsModule'));
+const AiAgentModule = React.lazy(() => import('./components/AiAgentModule'));
+const PremiumHubModule = React.lazy(() => import('./components/PremiumHubModule'));
+const DeveloperConsoleModule = React.lazy(() => import('./components/DeveloperConsoleModule'));
+
+// Visual and high contrast loader for lazy-loaded modules
+function ModuleLoader() {
+  return (
+    <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-slate-200/80 shadow-xs min-h-[350px]">
+      <RefreshCw className="w-8 h-8 text-slate-600 animate-spin mb-3" />
+      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider animate-pulse">Memuat Modul SIKU...</span>
+      <p className="text-[10px] text-slate-400 font-medium mt-1">Sistem Informasi Keuangan Usaha • Cepat & Efisien</p>
+    </div>
+  );
+}
 
 export default function App() {
   // 1. Core Persistent State
@@ -110,6 +125,16 @@ export default function App() {
     localStorage.setItem('buku_catatan_toko_data', JSON.stringify(data));
   }, [data]);
 
+  // Synchronize Dark Mode to Document Element Class
+  useEffect(() => {
+    const isDark = !!data.settings?.darkMode;
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [data.settings?.darkMode]);
+
   // 2. Active Date State (defaults to today)
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString);
 
@@ -134,6 +159,26 @@ export default function App() {
   >('dashboard');
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [inventoryTab, setInventoryTab] = useState<'list' | 'history' | 'categories'>('list');
+  const [creditDebtTab, setCreditDebtTab] = useState<'piutang' | 'utang'>('piutang');
+
+  const getActiveModuleLabel = () => {
+    switch (activeModule) {
+      case 'dashboard': return '🏠 Dashboard';
+      case 'kas': return '💰 Kas Harian';
+      case 'bank_wallet': return '🏦 Bank & E-Wallet';
+      case 'barang':
+        return inventoryTab === 'categories' ? '🏷️ Kategori Master' : '📦 Stok Barang';
+      case 'utang_piutang':
+        return creditDebtTab === 'utang' ? '🚚 Utang Supplier' : '👥 Piutang Pelanggan';
+      case 'summary': return '📊 Laporan & Kesehatan';
+      case 'ai_agent': return '🤖 Asisten AI';
+      case 'premium_hub': return '🏆 Layanan Premium';
+      case 'settings': return '⚙️ Pengaturan Super Admin';
+      case 'developer_console': return '🛠 Developer Console';
+      default: return 'Buku Catatan Toko';
+    }
+  };
 
   // Safety redirect: If the active module is developer_console but the role is no longer developer, bounce to dashboard
   useEffect(() => {
@@ -789,32 +834,66 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans antialiased selection:bg-slate-200 selection:text-slate-950">
       {/* HEADER SECTION */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs" id="app-header">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
           
-          {/* Store Branding */}
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-slate-800 text-white rounded-md flex items-center justify-center">
-              <Coins className="w-5 h-5" />
+          {/* Hamburger Menu & Brand */}
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-1.5 hover:bg-slate-100 text-slate-700 rounded-md transition-colors cursor-pointer shrink-0"
+              id="sidebar-toggle-btn"
+              title="Buka Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            {/* Store Branding */}
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1.5 bg-slate-800 text-white rounded-md flex items-center justify-center shrink-0">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-1.5 flex-wrap">
+                  <span className="truncate">{data.settings?.shopName || 'Buku Catatan Toko'}</span>
+                  <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-700 font-bold px-1.5 py-0.2 rounded uppercase shrink-0">
+                    {data.settings?.isPremiumActive ? '🏆 Premium' : 'Minimalis'}
+                  </span>
+                </h1>
+                <p className="text-[10px] text-slate-400 font-medium leading-none mt-1 truncate">
+                  {data.settings?.shopAddress || data.settings?.shopContact ? (
+                    <>
+                      {data.settings?.shopAddress && <span>📍 {data.settings.shopAddress}</span>}
+                      {data.settings?.shopAddress && data.settings?.shopContact && <span className="mx-1.5">•</span>}
+                      {data.settings?.shopContact && <span>📞 {data.settings.shopContact}</span>}
+                    </>
+                  ) : (
+                    'Kesehatan finansial dan kedisiplinan arus kas toko Anda'
+                  )}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-1.5 flex-wrap">
-                {data.settings?.shopName || 'Buku Catatan Toko'} 
-                <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-700 font-bold px-1.5 py-0.2 rounded uppercase">
-                  {data.settings?.isPremiumActive ? '🏆 Premium' : 'Minimalis'}
-                </span>
-              </h1>
-              <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">
-                {data.settings?.shopAddress || data.settings?.shopContact ? (
-                  <>
-                    {data.settings?.shopAddress && <span>📍 {data.settings.shopAddress}</span>}
-                    {data.settings?.shopAddress && data.settings?.shopContact && <span className="mx-1.5">•</span>}
-                    {data.settings?.shopContact && <span>📞 {data.settings.shopContact}</span>}
-                  </>
-                ) : (
-                  'Kesehatan finansial dan kedisiplinan arus kas toko Anda'
-                )}
-              </p>
+          </div>
+
+          {/* Header Actions (Quick Dark Mode & Module Indicator) */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Active Module Indicator */}
+            <div className="hidden md:flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100/80 px-3 py-1.5 rounded-full border border-slate-200/50 uppercase tracking-wider select-none">
+              {getActiveModuleLabel()}
             </div>
+
+            {/* Quick Dark Mode Toggle Button */}
+            <button
+              onClick={() => handleUpdateSettings({ darkMode: !data.settings?.darkMode })}
+              className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors cursor-pointer flex items-center justify-center border border-slate-200/40"
+              title={data.settings?.darkMode ? "Aktifkan Mode Terang" : "Aktifkan Mode Gelap"}
+              id="header-theme-quick-toggle"
+            >
+              {data.settings?.darkMode ? (
+                <Sun className="w-4 h-4 text-amber-500 fill-amber-100" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-600 fill-indigo-100" />
+              )}
+            </button>
           </div>
 
         </div>
@@ -836,6 +915,7 @@ export default function App() {
                         alt={user.displayName || 'User'}
                         className="w-5 h-5 rounded-full border border-slate-300"
                         referrerPolicy="no-referrer"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="w-5 h-5 rounded-full bg-slate-800 text-white font-bold text-[9px] flex items-center justify-center">
@@ -972,118 +1052,22 @@ export default function App() {
       {/* CORE MODULE NAVIGATOR */}
       <div className="max-w-7xl mx-auto px-4 pt-3 w-full flex-1 flex flex-col">
         
-        {/* Modern Flat Navigation Tabs */}
-        <div className="flex border-b border-slate-200 mb-3 bg-white" id="module-navigation-tabs">
-          <button
-            onClick={() => setActiveModule('kas')}
-            className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeModule === 'kas'
-                ? 'border-slate-800 text-slate-950 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30'
-            }`}
-          >
-            <Coins className="w-3.5 h-3.5 text-slate-500" /> Kas Harian
-          </button>
-
-          <button
-            onClick={() => setActiveModule('bank_wallet')}
-            className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeModule === 'bank_wallet'
-                ? 'border-slate-800 text-slate-950 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30'
-            }`}
-          >
-            <Wallet className="w-3.5 h-3.5 text-slate-500" /> Bank & E-Wallet
-          </button>
-
-          <button
-            onClick={() => setActiveModule('barang')}
-            className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeModule === 'barang'
-                ? 'border-slate-800 text-slate-950 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30'
-            }`}
-          >
-            <Package className="w-3.5 h-3.5 text-slate-500" /> Stok Barang
-          </button>
-          
-          <button
-            onClick={() => setActiveModule('utang_piutang')}
-            className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeModule === 'utang_piutang'
-                ? 'border-slate-800 text-slate-950 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30'
-            }`}
-          >
-            <FolderSync className="w-3.5 h-3.5 text-slate-500" /> Utang-Piutang
-          </button>
-
-          <button
-            onClick={() => setActiveModule('summary')}
-            className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeModule === 'summary'
-                ? 'border-slate-800 text-slate-950 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30'
-            }`}
-          >
-            <HeartPulse className="w-3.5 h-3.5 text-slate-500" /> Kesehatan Toko
-          </button>
-
-          <button
-            onClick={() => setActiveModule('ai_agent')}
-            className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeModule === 'ai_agent'
-                ? 'border-slate-800 text-slate-950 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30'
-            }`}
-          >
-            <Sparkles className={`w-3.5 h-3.5 ${data.settings?.isPremiumActive ? 'text-amber-500 fill-amber-500 animate-pulse' : 'text-slate-400'}`} /> 
-            Asisten AI
-            {data.settings?.isPremiumActive && (
-              <span className="text-[8px] bg-amber-100 text-amber-800 px-1 py-0.1 rounded font-bold uppercase tracking-wider scale-90">PRO</span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveModule('premium_hub')}
-            className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeModule === 'premium_hub'
-                ? 'border-slate-800 text-slate-950 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30'
-            }`}
-          >
-            <Sparkles className={`w-3.5 h-3.5 ${data.settings?.isPremiumActive ? 'text-amber-500 fill-amber-500' : 'text-slate-400'}`} /> 
-            Layanan Premium
-            {data.settings?.isPremiumActive && (
-              <span className="text-[8px] bg-amber-100 text-amber-800 px-1 py-0.1 rounded font-bold uppercase tracking-wider scale-90">PRO</span>
-            )}
-          </button>
-
-          {data.settings?.userRole === 'developer' && (
+        {/* Active Module Header */}
+        <div className="flex items-center justify-between border-b border-slate-200/80 pb-3 mb-4 select-none" id="active-module-header">
+          <div className="flex items-center gap-2">
+            <span className="text-base font-bold text-slate-800 uppercase tracking-tight">
+              {getActiveModuleLabel()}
+            </span>
+          </div>
+          {activeModule !== 'dashboard' && (
             <button
-              onClick={() => setActiveModule('developer_console')}
-              className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer md:ml-auto ${
-                activeModule === 'developer_console'
-                  ? 'border-indigo-500 text-indigo-650 bg-indigo-50/30'
-                  : 'border-transparent text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50/10'
-              }`}
+              onClick={() => setActiveModule('dashboard')}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 bg-white hover:bg-slate-50 px-2.5 py-1.5 rounded-md border border-slate-200/60 shadow-2xs transition-all cursor-pointer"
             >
-              <Terminal className="w-3.5 h-3.5 text-indigo-500" /> Dev Console
+              <Home className="w-3.5 h-3.5" />
+              <span>Kembali ke Dashboard</span>
             </button>
           )}
-
-          <button
-            onClick={() => setActiveModule('settings')}
-            className={`px-4 py-1.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-              data.settings?.userRole === 'developer' ? '' : 'md:ml-auto'
-            } ${
-              activeModule === 'settings'
-                ? 'border-slate-800 text-slate-950 bg-slate-50/50'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30'
-            }`}
-          >
-            <Settings className="w-3.5 h-3.5 text-slate-500" /> Super Admin
-          </button>
         </div>
 
         {/* ACTIVE WORKSPACE / MODULE VIEW */}
@@ -1097,142 +1081,182 @@ export default function App() {
               transition={{ duration: 0.1 }}
               className="h-full"
             >
-              {activeModule === 'kas' && (
-                <CashFlowModule
-                  selectedDate={selectedDate}
-                  session={data.sessions[selectedDate]}
-                  transactions={data.transactions}
-                  onUpdateSession={handleUpdateSession}
-                  onAddTransaction={handleAddTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
-                  products={data.products || []}
-                />
-              )}
+              <React.Suspense fallback={<ModuleLoader />}>
+                {activeModule === 'dashboard' && (
+                  <DashboardModule
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                    session={data.sessions[selectedDate]}
+                    transactions={data.transactions}
+                    receivables={data.receivables}
+                    payables={data.payables}
+                    onUpdateSession={handleUpdateSession}
+                    onNavigate={(module) => {
+                      if (module === 'kas') {
+                        setActiveModule('kas');
+                      } else if (module === 'stok_barang' || module === 'barang') {
+                        setActiveModule('barang');
+                        setInventoryTab('list');
+                      } else if (module === 'utang_piutang' || module === 'piutang') {
+                        setActiveModule('utang_piutang');
+                        setCreditDebtTab('piutang');
+                      } else if (module === 'utang') {
+                        setActiveModule('utang_piutang');
+                        setCreditDebtTab('utang');
+                      } else if (module === 'summary') {
+                        setActiveModule('summary');
+                      } else if (module === 'settings') {
+                        setActiveModule('settings');
+                      } else {
+                        setActiveModule(module as any);
+                      }
+                    }}
+                    currentUser={user || { displayName: data.settings?.shopName || 'Pemilik Toko', email: '' }}
+                    adjustDateByDays={adjustDateByDays}
+                    getTodayDateString={getTodayDateString}
+                  />
+                )}
 
-              {activeModule === 'bank_wallet' && (
-                <BankWalletModule
-                  selectedDate={selectedDate}
-                  bankAccounts={data.bankAccounts || []}
-                  bankMutations={data.bankMutations || []}
-                  onAddMutation={handleAddBankMutation}
-                  onDeleteMutation={handleDeleteBankMutation}
-                  onAddAccount={handleAddBankAccount}
-                  onUpdateAccount={handleUpdateBankAccount}
-                  onDeleteAccount={handleDeleteBankAccount}
-                />
-              )}
+                {activeModule === 'kas' && (
+                  <CashFlowModule
+                    selectedDate={selectedDate}
+                    session={data.sessions[selectedDate]}
+                    transactions={data.transactions}
+                    onUpdateSession={handleUpdateSession}
+                    onAddTransaction={handleAddTransaction}
+                    onDeleteTransaction={handleDeleteTransaction}
+                    products={data.products || []}
+                  />
+                )}
 
-              {activeModule === 'barang' && (
-                <InventoryModule
-                  selectedDate={selectedDate}
-                  products={data.products || []}
-                  stockHistory={data.stockHistory || []}
-                  onAddProduct={handleAddProduct}
-                  onUpdateProduct={handleUpdateProduct}
-                  onDeleteProduct={handleDeleteProduct}
-                  onAddStockHistory={handleAddStockHistory}
-                  bankAccounts={data.bankAccounts || []}
-                  onAddBankMutation={handleAddBankMutation}
-                  onAddTransaction={handleAddTransaction}
-                  categories={data.categories || []}
-                  subcategories={data.subcategories || []}
-                  onAddCategory={handleAddCategory}
-                  onAddSubcategory={handleAddSubcategory}
-                  onDeleteCategory={handleDeleteCategory}
-                  onDeleteSubcategory={handleDeleteSubcategory}
-                />
-              )}
+                {activeModule === 'bank_wallet' && (
+                  <BankWalletModule
+                    selectedDate={selectedDate}
+                    bankAccounts={data.bankAccounts || []}
+                    bankMutations={data.bankMutations || []}
+                    onAddMutation={handleAddBankMutation}
+                    onDeleteMutation={handleDeleteBankMutation}
+                    onAddAccount={handleAddBankAccount}
+                    onUpdateAccount={handleUpdateBankAccount}
+                    onDeleteAccount={handleDeleteBankAccount}
+                  />
+                )}
 
-              {activeModule === 'utang_piutang' && (
-                <CreditDebtModule
-                  receivables={data.receivables}
-                  payables={data.payables}
-                  onAddReceivable={handleAddReceivable}
-                  onUpdateReceivable={handleUpdateReceivable}
-                  onDeleteReceivable={handleDeleteReceivable}
-                  onAddPayable={handleAddPayable}
-                  onUpdatePayable={handleUpdatePayable}
-                  onDeletePayable={handleDeletePayable}
-                />
-              )}
+                {activeModule === 'barang' && (
+                  <InventoryModule
+                    selectedDate={selectedDate}
+                    products={data.products || []}
+                    stockHistory={data.stockHistory || []}
+                    onAddProduct={handleAddProduct}
+                    onUpdateProduct={handleUpdateProduct}
+                    onDeleteProduct={handleDeleteProduct}
+                    onAddStockHistory={handleAddStockHistory}
+                    bankAccounts={data.bankAccounts || []}
+                    onAddBankMutation={handleAddBankMutation}
+                    onAddTransaction={handleAddTransaction}
+                    categories={data.categories || []}
+                    subcategories={data.subcategories || []}
+                    onAddCategory={handleAddCategory}
+                    onAddSubcategory={handleAddSubcategory}
+                    onDeleteCategory={handleDeleteCategory}
+                    onDeleteSubcategory={handleDeleteSubcategory}
+                    defaultTab={inventoryTab}
+                  />
+                )}
 
-              {activeModule === 'summary' && (
-                <BusinessHealthSummary
-                  selectedDate={selectedDate}
-                  sessions={data.sessions}
-                  transactions={data.transactions}
-                  onUpdateSession={handleUpdateSession}
-                />
-              )}
+                {activeModule === 'utang_piutang' && (
+                  <CreditDebtModule
+                    receivables={data.receivables}
+                    payables={data.payables}
+                    onAddReceivable={handleAddReceivable}
+                    onUpdateReceivable={handleUpdateReceivable}
+                    onDeleteReceivable={handleDeleteReceivable}
+                    onAddPayable={handleAddPayable}
+                    onUpdatePayable={handleUpdatePayable}
+                    onDeletePayable={handleDeletePayable}
+                    defaultTab={creditDebtTab}
+                  />
+                )}
 
-              {activeModule === 'ai_agent' && (
-                <AiAgentModule
-                  settings={data.settings || {
-                    shopName: 'Buku Catatan Toko',
-                    shopAddress: 'Jl. Raya Kemakmuran No. 12, Jakarta',
-                    shopContact: '081234567890',
-                    isPremiumActive: false
-                  }}
-                  products={data.products || []}
-                  transactions={data.transactions || []}
-                  receivables={data.receivables || []}
-                  payables={data.payables || []}
-                  onActivatePremium={() => handleUpdateSettings({ isPremiumActive: true })}
-                  onGoToSettings={() => setActiveModule('settings')}
-                  onAddTransaction={handleAddTransaction}
-                />
-              )}
+                {activeModule === 'summary' && (
+                  <BusinessHealthSummary
+                    selectedDate={selectedDate}
+                    sessions={data.sessions}
+                    transactions={data.transactions}
+                    onUpdateSession={handleUpdateSession}
+                    settings={data.settings}
+                  />
+                )}
 
-              {activeModule === 'premium_hub' && (
-                <PremiumHubModule
-                  settings={data.settings || {
-                    shopName: 'Buku Catatan Toko',
-                    shopAddress: 'Jl. Raya Kemakmuran No. 12, Jakarta',
-                    shopContact: '081234567890',
-                    isPremiumActive: false
-                  }}
-                  products={data.products || []}
-                  transactions={data.transactions || []}
-                  receivables={data.receivables || []}
-                  payables={data.payables || []}
-                  onActivatePremium={() => handleUpdateSettings({ isPremiumActive: true })}
-                  onGoToSettings={() => setActiveModule('settings')}
-                  onAddTransaction={handleAddTransaction}
-                  onRestoreAllData={handleRestoreAllData}
-                />
-              )}
+                {activeModule === 'ai_agent' && (
+                  <AiAgentModule
+                    settings={data.settings || {
+                      shopName: 'Buku Catatan Toko',
+                      shopAddress: 'Jl. Raya Kemakmuran No. 12, Jakarta',
+                      shopContact: '081234567890',
+                      isPremiumActive: false
+                    }}
+                    products={data.products || []}
+                    transactions={data.transactions || []}
+                    receivables={data.receivables || []}
+                    payables={data.payables || []}
+                    onActivatePremium={() => handleUpdateSettings({ isPremiumActive: true })}
+                    onGoToSettings={() => setActiveModule('settings')}
+                    onAddTransaction={handleAddTransaction}
+                  />
+                )}
 
-              {activeModule === 'settings' && (
-                <SuperAdminSettingsModule
-                  settings={data.settings || {
-                    shopName: 'Buku Catatan Toko',
-                    shopAddress: 'Jl. Raya Kemakmuran No. 12, Jakarta',
-                    shopContact: '081234567890',
-                    isPremiumActive: false
-                  }}
-                  onUpdateSettings={handleUpdateSettings}
-                  categories={data.categories || []}
-                  subcategories={data.subcategories || []}
-                  onAddCategory={handleAddCategory}
-                  onAddSubcategory={handleAddSubcategory}
-                  onDeleteCategory={handleDeleteCategory}
-                  onDeleteSubcategory={handleDeleteSubcategory}
-                />
-              )}
+                {activeModule === 'premium_hub' && (
+                  <PremiumHubModule
+                    settings={data.settings || {
+                      shopName: 'Buku Catatan Toko',
+                      shopAddress: 'Jl. Raya Kemakmuran No. 12, Jakarta',
+                      shopContact: '081234567890',
+                      isPremiumActive: false
+                    }}
+                    products={data.products || []}
+                    transactions={data.transactions || []}
+                    receivables={data.receivables || []}
+                    payables={data.payables || []}
+                    onActivatePremium={() => handleUpdateSettings({ isPremiumActive: true })}
+                    onGoToSettings={() => setActiveModule('settings')}
+                    onAddTransaction={handleAddTransaction}
+                    onRestoreAllData={handleRestoreAllData}
+                  />
+                )}
 
-              {activeModule === 'developer_console' && data.settings?.userRole === 'developer' && (
-                <DeveloperConsoleModule
-                  settings={data.settings || {
-                    shopName: 'Buku Catatan Toko',
-                    shopAddress: 'Jl. Raya Kemakmuran No. 12, Jakarta',
-                    shopContact: '081234567890',
-                    isPremiumActive: false,
-                    userRole: 'developer'
-                  }}
-                  onUpdateSettings={handleUpdateSettings}
-                  currentUser={user}
-                />
-              )}
+                {activeModule === 'settings' && (
+                  <SuperAdminSettingsModule
+                    settings={data.settings || {
+                      shopName: 'Buku Catatan Toko',
+                      shopAddress: 'Jl. Raya Kemakmuran No. 12, Jakarta',
+                      shopContact: '081234567890',
+                      isPremiumActive: false
+                    }}
+                    onUpdateSettings={handleUpdateSettings}
+                    categories={data.categories || []}
+                    subcategories={data.subcategories || []}
+                    onAddCategory={handleAddCategory}
+                    onAddSubcategory={handleAddSubcategory}
+                    onDeleteCategory={handleDeleteCategory}
+                    onDeleteSubcategory={handleDeleteSubcategory}
+                  />
+                )}
+
+                {activeModule === 'developer_console' && data.settings?.userRole === 'developer' && (
+                  <DeveloperConsoleModule
+                    settings={data.settings || {
+                      shopName: 'Buku Catatan Toko',
+                      shopAddress: 'Jl. Raya Kemakmuran No. 12, Jakarta',
+                      shopContact: '081234567890',
+                      isPremiumActive: false,
+                      userRole: 'developer'
+                    }}
+                    onUpdateSettings={handleUpdateSettings}
+                    currentUser={user}
+                  />
+                )}
+              </React.Suspense>
             </motion.div>
           </AnimatePresence>
         </main>
@@ -1281,6 +1305,356 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* SIDEBAR NAVIGATION DRAWER */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)}
+              className="fixed inset-0 bg-slate-950/40 z-50 cursor-pointer"
+              id="sidebar-backdrop"
+            />
+
+            {/* Sidebar drawer container */}
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="fixed top-0 bottom-0 left-0 w-72 bg-white border-r border-slate-200 shadow-2xl z-50 flex flex-col h-full font-sans overflow-hidden"
+              id="app-sidebar"
+            >
+              {/* Sidebar Header */}
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 bg-slate-800 text-white rounded-md flex items-center justify-center shrink-0">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-xs font-bold text-slate-900 tracking-tight truncate">
+                      {data.settings?.shopName || 'Buku Catatan Toko'}
+                    </h2>
+                    <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-600 font-bold px-1.5 py-0.2 rounded uppercase mt-0.5 inline-block shrink-0">
+                      {data.settings?.isPremiumActive ? '🏆 Premium Active' : 'Minimalis'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-md transition-all cursor-pointer shrink-0"
+                  title="Tutup Menu"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Sidebar Navigation Items - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-4 select-none scrollbar-thin scrollbar-thumb-slate-200">
+                
+                {/* 1. DASHBOARD */}
+                <div>
+                  <button
+                    onClick={() => {
+                      setActiveModule('dashboard');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'dashboard'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Home className="w-4 h-4" />
+                    <span>🏠 Dashboard</span>
+                  </button>
+                </div>
+
+                <hr className="border-slate-100" />
+
+                {/* 2. TRANSAKSI GROUP */}
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-slate-400 tracking-wider px-3 uppercase block mb-1">Transaksi</span>
+                  
+                  <button
+                    onClick={() => {
+                      setActiveModule('kas');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'kas'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Coins className="w-4 h-4" />
+                    <span>💰 Kas</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('bank_wallet');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'bank_wallet'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Wallet className="w-4 h-4" />
+                    <span>🏦 Bank & E-Wallet</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('barang');
+                      setInventoryTab('list');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'barang' && inventoryTab === 'list'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Package className="w-4 h-4" />
+                    <span>📦 Stok Barang</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('utang_piutang');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'utang_piutang'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <FolderSync className="w-4 h-4" />
+                    <span>💳 Utang Piutang</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('summary');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'summary'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <HeartPulse className="w-4 h-4" />
+                    <span>❤️ Kesehatan Toko</span>
+                  </button>
+                </div>
+
+                <hr className="border-slate-100" />
+
+                {/* 3. AI GROUP */}
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-slate-400 tracking-wider px-3 uppercase block mb-1">AI</span>
+                  
+                  <button
+                    onClick={() => {
+                      setActiveModule('ai_agent');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'ai_agent'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Sparkles className={`w-4 h-4 ${data.settings?.isPremiumActive ? 'text-amber-500 fill-amber-500 animate-pulse' : 'text-slate-400'}`} />
+                    <span>🤖 Asisten AI</span>
+                    {data.settings?.isPremiumActive && (
+                      <span className="ml-auto text-[8px] bg-amber-100 text-amber-800 px-1 py-0.2 rounded font-bold uppercase tracking-wider">PRO</span>
+                    )}
+                  </button>
+                </div>
+
+                <hr className="border-slate-100" />
+
+                {/* 4. MASTER GROUP */}
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-slate-400 tracking-wider px-3 uppercase block mb-1">Master</span>
+                  
+                  <button
+                    onClick={() => {
+                      setActiveModule('barang');
+                      setInventoryTab('list');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'barang' && inventoryTab === 'list'
+                        ? 'bg-slate-100 text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Package className="w-4 h-4 text-slate-500" />
+                    <span>📦 Barang</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('barang');
+                      setInventoryTab('categories');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'barang' && inventoryTab === 'categories'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Tag className="w-4 h-4" />
+                    <span>🏷️ Kategori</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('utang_piutang');
+                      setCreditDebtTab('piutang');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'utang_piutang' && creditDebtTab === 'piutang'
+                        ? 'bg-slate-100 text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 text-slate-500" />
+                    <span>👥 Pelanggan</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('utang_piutang');
+                      setCreditDebtTab('utang');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'utang_piutang' && creditDebtTab === 'utang'
+                        ? 'bg-slate-100 text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Truck className="w-4 h-4 text-slate-500" />
+                    <span>🚚 Supplier</span>
+                  </button>
+                </div>
+
+                <hr className="border-slate-100" />
+
+                {/* 5. LAPORAN GROUP */}
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-slate-400 tracking-wider px-3 uppercase block mb-1">Laporan</span>
+                  
+                  <button
+                    onClick={() => {
+                      setActiveModule('summary');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'summary'
+                        ? 'bg-slate-100 text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <BarChart3 className="w-4 h-4 text-slate-500" />
+                    <span>📊 Laporan</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('kas');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'kas'
+                        ? 'bg-slate-100 text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <BookOpen className="w-4 h-4 text-slate-500" />
+                    <span>📒 Jurnal</span>
+                  </button>
+                </div>
+
+                <hr className="border-slate-100" />
+
+                {/* 6. PENGATURAN GROUP */}
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-slate-400 tracking-wider px-3 uppercase block mb-1">Pengaturan</span>
+                  
+                  <button
+                    onClick={() => {
+                      setActiveModule('settings');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'settings'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>⚙️ Pengaturan</span>
+                  </button>
+
+                  {data.settings?.userRole === 'developer' && (
+                    <button
+                      onClick={() => {
+                        setActiveModule('developer_console');
+                        setSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                        activeModule === 'developer_console'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'
+                      }`}
+                    >
+                      <Terminal className="w-4 h-4" />
+                      <span>🛠 Developer Console</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setActiveModule('premium_hub');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-bold transition-all text-left cursor-pointer ${
+                      activeModule === 'premium_hub'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <span>💎 Layanan Premium</span>
+                  </button>
+                </div>
+
+              </div>
+
+              {/* Sidebar Footer */}
+              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-[10px] text-slate-400 shrink-0">
+                <span>v1.0 SIKU</span>
+                <span>Offline-first & Aman</span>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

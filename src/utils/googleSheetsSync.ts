@@ -2,6 +2,46 @@ import { LocalData, Transaction, Receivable, Payable, DailyCashSession } from '.
 
 const SPREADSHEET_NAME = 'Buku Catatan Toko - Cloud Sync';
 
+const CACHE_KEY_PREFIX = 'siku_sheets_cache_';
+const CACHE_TTL_MS = 45000; // Cache valid for 45 seconds to optimize session requests
+
+function getSessionCache(spreadsheetId: string): LocalData | null {
+  try {
+    const raw = sessionStorage.getItem(`${CACHE_KEY_PREFIX}${spreadsheetId}`);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    const age = Date.now() - entry.timestamp;
+    if (age < CACHE_TTL_MS) {
+      console.log('SIKU Sheets Cache: Mengambil data dari Session Cache (TTL aktif)');
+      return entry.data;
+    }
+  } catch (e) {
+    console.warn('Gagal membaca Session Cache:', e);
+  }
+  return null;
+}
+
+function setSessionCache(spreadsheetId: string, data: LocalData): void {
+  try {
+    const entry = {
+      timestamp: Date.now(),
+      data,
+    };
+    sessionStorage.setItem(`${CACHE_KEY_PREFIX}${spreadsheetId}`, JSON.stringify(entry));
+  } catch (e) {
+    console.warn('Gagal menyimpan Session Cache:', e);
+  }
+}
+
+export function invalidateSessionCache(spreadsheetId: string): void {
+  try {
+    sessionStorage.removeItem(`${CACHE_KEY_PREFIX}${spreadsheetId}`);
+    console.log('SIKU Sheets Cache: Invalidasi Session Cache berhasil');
+  } catch (e) {
+    // ignore
+  }
+}
+
 // Helper for Google API fetch with authorization
 async function apiCall(url: string, options: RequestInit = {}, accessToken: string) {
   const headers = new Headers(options.headers || {});
@@ -209,6 +249,9 @@ export async function syncLocalDataToSheets(
     method: 'POST',
     body: JSON.stringify(body),
   }, accessToken);
+
+  // Update session cache to keep read/write state cohesive and optimized
+  setSessionCache(spreadsheetId, data);
 }
 
 /**
@@ -218,6 +261,12 @@ export async function downloadDataFromSheets(
   accessToken: string,
   spreadsheetId: string
 ): Promise<LocalData> {
+  // Check session cache first to minimize spreadsheet read requests
+  const cached = getSessionCache(spreadsheetId);
+  if (cached) {
+    return cached;
+  }
+
   await ensureSheetsExist(accessToken, spreadsheetId);
 
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?ranges=Transaksi!A1:H1000&ranges=Piutang!A1:I1000&ranges=Utang!A1:I1000&ranges=Sesi%20Kasir!A1:D1000`;
@@ -327,10 +376,13 @@ export async function downloadDataFromSheets(
     }
   }
 
-  return {
+  const result: LocalData = {
     sessions,
     transactions,
     receivables,
     payables,
   };
+
+  setSessionCache(spreadsheetId, result);
+  return result;
 }

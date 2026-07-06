@@ -555,6 +555,44 @@ export default function InventoryModule({
             </div>
           </div>
 
+          {/* Quick Category Badge Filters */}
+          <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none" id="inventory-category-quick-filters">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 shrink-0 font-mono">
+              <Layers className="w-3.5 h-3.5 text-slate-400" /> Kategori:
+            </span>
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+              <button
+                type="button"
+                onClick={() => setCategoryFilter('all')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                  categoryFilter === 'all'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-600'
+                }`}
+              >
+                Semua ({products.length})
+              </button>
+              {categories.map((cat) => {
+                const count = products.filter(p => p.categoryId === cat.id).length;
+                const isSelected = categoryFilter === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategoryFilter(cat.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                      isSelected
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {cat.name} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Catalog Products Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -590,7 +628,15 @@ export default function InventoryModule({
                           {p.sku || <span className="italic text-slate-300">tanpa kode</span>}
                         </td>
                         <td className="p-3">
-                          <div className="font-bold text-slate-800">{p.name}</div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-bold text-slate-800">{p.name}</span>
+                            {isLowStock && (
+                              <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-700 border border-amber-500/20 text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                Stok Minim (Min: {minStock})
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[9px] text-slate-400 mt-0.5">Satuan: {p.unit}</div>
                           {p.categoryId && (
                             <div className="text-[9px] mt-1 text-slate-500 font-medium flex flex-wrap gap-1">
@@ -1180,6 +1226,68 @@ export default function InventoryModule({
                   </div>
                 </div>
               </div>
+
+              {/* Margin & Profitability Auto-Calculator */}
+              {(prodCostPrice > 0 || prodSellingPrice > 0) && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3" id="product-profitability-calculator">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 mb-2">
+                    <span className="text-[9px] font-bold text-slate-500 font-mono uppercase tracking-wider">Kalkulator Margin Otomatis</span>
+                    <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-full font-bold">Real-time</span>
+                  </div>
+                  
+                  {prodSellingPrice < prodCostPrice ? (
+                    <div className="bg-rose-50 border border-rose-100 rounded p-2 text-rose-700 text-[10px] font-semibold flex items-center gap-1.5">
+                      <span className="animate-pulse">⚠️</span>
+                      <span>Harga jual di bawah harga beli! Anda akan mengalami kerugian sebesar <strong>Rp {(prodCostPrice - prodSellingPrice).toLocaleString()}</strong> per unit.</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-white border border-slate-150 p-1.5 rounded">
+                          <span className="block text-[8px] font-bold text-slate-400 uppercase">Laba / Unit</span>
+                          <span className="font-mono text-[11px] font-bold text-emerald-600 block truncate">
+                            Rp {(prodSellingPrice - prodCostPrice).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="bg-white border border-slate-150 p-1.5 rounded">
+                          <span className="block text-[8px] font-bold text-slate-400 uppercase">Margin Laba</span>
+                          <span className={`font-mono text-xs font-bold ${prodSellingPrice > 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                            {prodSellingPrice > 0 ? (((prodSellingPrice - prodCostPrice) / prodSellingPrice) * 100).toFixed(1) : '0'}%
+                          </span>
+                        </div>
+                        <div className="bg-white border border-slate-150 p-1.5 rounded">
+                          <span className="block text-[8px] font-bold text-slate-400 uppercase">Markup</span>
+                          <span className={`font-mono text-xs font-bold ${prodCostPrice > 0 ? 'text-blue-600' : 'text-slate-500'}`}>
+                            {prodCostPrice > 0 ? (((prodSellingPrice - prodCostPrice) / prodCostPrice) * 100).toFixed(1) : '0'}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Visual progress bar representation of Profit vs Cost */}
+                      {prodSellingPrice > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[8px] text-slate-400 font-semibold uppercase">
+                            <span>Komposisi Harga Jual</span>
+                            <span>Modal: {((prodCostPrice / prodSellingPrice) * 100).toFixed(0)}% | Laba: {(((prodSellingPrice - prodCostPrice) / prodSellingPrice) * 100).toFixed(0)}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden flex">
+                            <div 
+                              className="h-full bg-slate-400 transition-all duration-300" 
+                              style={{ width: `${Math.min(100, (prodCostPrice / prodSellingPrice) * 100)}%` }}
+                              title="Modal (HPP)"
+                            />
+                            <div 
+                              className="h-full bg-emerald-500 transition-all duration-300" 
+                              style={{ width: `${Math.max(0, 100 - (prodCostPrice / prodSellingPrice) * 100)}%` }}
+                              title="Estimasi Margin Laba"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Building2, MapPin, Phone, Sparkles, Check, HelpCircle, Trash2, Plus, X, FolderSync, User } from 'lucide-react';
+import { Shield, Building2, MapPin, Phone, Sparkles, Check, HelpCircle, Trash2, Plus, X, FolderSync, User, Moon, Sun } from 'lucide-react';
 import { AppSettings, ProductCategory, ProductSubcategory } from '../types';
 
 interface SuperAdminSettingsModuleProps {
@@ -28,12 +28,18 @@ export default function SuperAdminSettingsModule({
   const [shopContact, setShopContact] = useState(settings.shopContact || '');
   const [isPremiumActive, setIsPremiumActive] = useState(!!settings.isPremiumActive);
   const [userRole, setUserRole] = useState(settings.userRole || 'developer');
+  const [darkMode, setDarkMode] = useState(!!settings.darkMode);
   const [isSaved, setIsSaved] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const triggerToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleDarkModeToggle = (checked: boolean) => {
+    setDarkMode(checked);
+    onUpdateSettings({ darkMode: checked });
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -44,6 +50,7 @@ export default function SuperAdminSettingsModule({
       shopContact,
       isPremiumActive,
       userRole,
+      darkMode,
     });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
@@ -188,6 +195,40 @@ export default function SuperAdminSettingsModule({
                 checked={isPremiumActive}
                 onChange={(e) => setIsPremiumActive(e.target.checked)}
                 className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+            </label>
+          </div>
+        </div>
+
+        {/* Section 3: Personalisasi & Tampilan (Tema Gelap) */}
+        <div className="space-y-4 pt-4 border-t border-slate-100">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">3. Personalisasi & Tampilan</h3>
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase font-mono ${darkMode ? 'bg-slate-800 border border-slate-700 text-slate-200' : 'bg-amber-100 border border-amber-200 text-amber-800'}`}>
+              {darkMode ? 'TEMA GELAP AKTIF' : 'TEMA TERANG'}
+            </span>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-1 max-w-xl">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                {darkMode ? <Moon className="w-4 h-4 text-indigo-500 fill-indigo-200" /> : <Sun className="w-4 h-4 text-amber-500 fill-amber-100" />}
+                Aktifkan Mode Gelap (Dark Mode)
+              </span>
+              <p className="text-[10px] text-slate-400 leading-normal">
+                Mengubah seluruh tampilan aplikasi menjadi gelap untuk mengurangi ketegangan mata dan menghemat konsumsi daya baterai, terutama saat melakukan pencatatan transaksi di malam hari.
+              </p>
+            </div>
+
+            {/* Toggle switch */}
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={darkMode}
+                onChange={(e) => handleDarkModeToggle(e.target.checked)}
+                className="sr-only peer"
+                id="dark-mode-toggle-settings"
               />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
             </label>

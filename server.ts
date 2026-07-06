@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
@@ -86,10 +87,32 @@ app.post("/api/gemini/generate", async (req, res) => {
     }
 
     addLog(`[AI] Generating content for prompt length: ${prompt.length}`);
+    
+    // Read KnowledgeBase.md to provide as context/rules for the AI agent
+    let knowledgeBaseContent = "";
+    try {
+      const kbPath = path.join(process.cwd(), "KnowledgeBase.md");
+      knowledgeBaseContent = await fs.promises.readFile(kbPath, "utf-8");
+    } catch (err) {
+      console.warn("Could not read KnowledgeBase.md:", err);
+    }
+
+    const systemInstruction = `Anda adalah SIKU (Sistem Informasi Keuangan Usaha) AI Agent - Sahabat Pembukuan Cerdas UMKM Indonesia.
+Anda ramah, solutif, dan menggunakan bahasa Indonesia yang santun serta mudah dipahami oleh pemilik usaha atau pedagang tradisional di Indonesia.
+
+PENTING:
+Jika pengguna bertanya tentang informasi layanan buku kas resmi, fitur resmi, rilis produk, atau konten resmi dari Buku Kas, Anda harus mencari dan mengakses informasi dari situs resmi www.bukukas.biz.id menggunakan fitur Google Search Grounding yang telah diaktifkan untuk Anda. Selalu berikan prioritas tertinggi pada informasi resmi dari domain www.bukukas.biz.id tersebut agar jawaban Anda akurat, valid, dan dapat dipercaya oleh pengguna.
+
+${knowledgeBaseContent ? `\n--- KNOWLEDGE BASE & PANDUAN RESMI APLIKASI SIKU ---\nBerikut adalah Panduan Resmi Penggunaan Aplikasi SIKU. Jawablah pertanyaan user dengan mengacu pada panduan ini jika pertanyaan bersangkutan dengan cara pakai, menu, cara pencatatan, atau cara kerja SIKU:\n${knowledgeBaseContent}\n--- AKHIR KNOWLEDGE BASE ---\n` : ""}`;
+
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
+      config: {
+        systemInstruction: systemInstruction,
+        tools: [{ googleSearch: {} }]
+      }
     });
 
     res.json({ text: response.text });

@@ -48,6 +48,7 @@ export interface AppSettings {
   shopContact?: string;
   isPremiumActive: boolean;
   userRole?: 'developer' | 'owner' | 'kasir' | 'admin';
+  darkMode?: boolean;
 }
 
 export interface LocalData {

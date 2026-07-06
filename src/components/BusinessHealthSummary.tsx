@@ -12,9 +12,10 @@ import {
   CalendarDays,
   ShieldCheck,
   AlertTriangle,
-  TrendingDown
+  TrendingDown,
+  Printer
 } from 'lucide-react';
-import { Transaction, DailyCashSession } from '../types';
+import { Transaction, DailyCashSession, AppSettings } from '../types';
 import { formatRupiah, getTodayDateString, getFormattedDate } from '../utils/helpers';
 import {
   ResponsiveContainer,
@@ -32,6 +33,7 @@ interface BusinessHealthSummaryProps {
   sessions: Record<string, DailyCashSession>;
   transactions: Transaction[];
   onUpdateSession: (date: string, updates: Partial<DailyCashSession>) => void;
+  settings?: AppSettings;
 }
 
 export default function BusinessHealthSummary({
@@ -39,6 +41,7 @@ export default function BusinessHealthSummary({
   sessions,
   transactions,
   onUpdateSession,
+  settings,
 }: BusinessHealthSummaryProps) {
   // Summary range: 'day' | 'week' | 'all'
   const [range, setRange] = useState<'day' | 'week' | 'all'>('day');
@@ -91,29 +94,33 @@ export default function BusinessHealthSummary({
     return dates;
   }, [range, selectedDate, transactions, sessions]);
 
+  // Filtered transactions for the selected range, sorted by date descending
+  const filteredTransactions = useMemo(() => {
+    return transactions
+      .filter(tx => dateList.includes(tx.date))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [transactions, dateList]);
+
   // Aggregate stats based on date list
   const aggregatedStats = useMemo(() => {
-    // 1. Transactions
-    const filteredTx = transactions.filter(tx => dateList.includes(tx.date));
-    
-    const totalIncome = filteredTx
+    const totalIncome = filteredTransactions
       .filter(tx => tx.type === 'masuk')
       .reduce((sum, tx) => sum + tx.amount, 0);
 
-    const totalExpense = filteredTx
+    const totalExpense = filteredTransactions
       .filter(tx => tx.type === 'keluar')
       .reduce((sum, tx) => sum + tx.amount, 0);
 
     // Calculate Gross profit = Income with HPP - HPP of those transactions
     // For transactions without HPP, let's treat HPP as the product cost. If not set, we assume 100% margin (HPP = 0)
     // Let's sum HPP for all income transactions
-    const incomeTransactions = filteredTx.filter(tx => tx.type === 'masuk');
+    const incomeTransactions = filteredTransactions.filter(tx => tx.type === 'masuk');
     const totalHpp = incomeTransactions.reduce((sum, tx) => sum + (tx.hpp ?? 0), 0);
     const grossProfit = totalIncome - totalHpp;
 
     // Count transaction categories
-    const routineCount = filteredTx.filter(tx => tx.category === 'rutin').length;
-    const incidentalCount = filteredTx.filter(tx => tx.category === 'insidental').length;
+    const routineCount = filteredTransactions.filter(tx => tx.category === 'rutin').length;
+    const incidentalCount = filteredTransactions.filter(tx => tx.category === 'insidental').length;
 
     // 2. Cash sessions aggregation
     let totalOpeningPhysical = 0;
@@ -146,7 +153,7 @@ export default function BusinessHealthSummary({
       totalClosingPhysical,
       hasClosingData
     };
-  }, [dateList, transactions, sessions]);
+  }, [filteredTransactions, dateList, sessions]);
 
   // Handle closing physical cash save
   const handleSaveClosing = (e: React.FormEvent) => {
@@ -234,30 +241,41 @@ export default function BusinessHealthSummary({
           <p className="text-[10px] text-slate-400 mt-0.5">Analisis kesehatan finansial berdasarkan rentang waktu</p>
         </div>
 
-        <div className="flex bg-white border border-slate-200 p-0.5 rounded shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex bg-white border border-slate-200 p-0.5 rounded shadow-2xs">
+            <button
+              onClick={() => setRange('day')}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer ${
+                range === 'day' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Harian ({getFormattedDate(selectedDate)})
+            </button>
+            <button
+              onClick={() => setRange('week')}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer ${
+                range === 'week' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Mingguan (7 Hari)
+            </button>
+            <button
+              onClick={() => setRange('all')}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer ${
+                range === 'all' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Semua Waktu
+            </button>
+          </div>
+
           <button
-            onClick={() => setRange('day')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer ${
-              range === 'day' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold py-1.5 px-3 rounded shadow-2xs transition-all cursor-pointer"
+            title="Cetak Laporan Keuangan ke PDF"
           >
-            Harian ({getFormattedDate(selectedDate)})
-          </button>
-          <button
-            onClick={() => setRange('week')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer ${
-              range === 'week' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Mingguan (7 Hari)
-          </button>
-          <button
-            onClick={() => setRange('all')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer ${
-              range === 'all' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Semua Waktu
+            <Printer className="w-3.5 h-3.5" />
+            <span>Cetak PDF</span>
           </button>
         </div>
       </div>
@@ -580,6 +598,191 @@ export default function BusinessHealthSummary({
           </div>
         </div>
 
+      </div>
+
+      {/* ================= PRINT-ONLY REPORT TEMPLATE ================= */}
+      <div className="hidden print-only mt-6 font-sans text-slate-900 leading-normal" id="print-section">
+        {/* Print Header */}
+        <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950 uppercase">SIKU — Sistem Informasi Keuangan Usaha</h1>
+            <p className="text-xs text-slate-600 mt-1">Laporan Ringkasan Kesehatan & Arus Kas Bisnis</p>
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5">Dicetak pada: {new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}</p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-lg font-bold text-slate-950">{settings?.shopName || 'Nama Toko / UMKM'}</h2>
+            <p className="text-xs text-slate-700 mt-0.5">{settings?.shopAddress || 'Alamat Toko Belum Ditentukan'}</p>
+            <p className="text-xs text-slate-700">{settings?.shopContact || 'Kontak Belum Ditentukan'}</p>
+          </div>
+        </div>
+
+        {/* Report Meta Info */}
+        <div className="mb-6 bg-slate-100 p-3 rounded border border-slate-300">
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            <div>
+              <p className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Jangka Waktu Laporan</p>
+              <p className="text-sm font-bold text-slate-900 mt-0.5">
+                {range === 'day' 
+                  ? `Harian (${getFormattedDate(selectedDate)})` 
+                  : range === 'week' 
+                    ? 'Mingguan (7 Hari Terakhir)' 
+                    : 'Semua Waktu'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Status Evaluasi Kasir</p>
+              <p className="text-sm font-bold text-slate-900 mt-0.5">
+                {dailyDiscrepancy === null 
+                  ? 'Belum Dievaluasi (Uang Fisik Kasir Belum Diisi)' 
+                  : dailyDiscrepancy === 0 
+                    ? 'PAS / SEIMBANG' 
+                    : dailyDiscrepancy < 0 
+                      ? `SELISIH KURANG (${formatRupiah(dailyDiscrepancy)})` 
+                      : `SELISIH LEBIH (+${formatRupiah(dailyDiscrepancy)})`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Section: Ringkasan Finansial Utama */}
+        <div className="mb-6">
+          <h3 className="text-xs uppercase font-bold tracking-wider text-slate-950 border-b border-slate-900 pb-1.5 mb-3">1. RINGKASAN KEUANGAN UTAMA</h3>
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-slate-100 font-bold">
+                <th className="p-2 border border-slate-900">Metrik Finansial</th>
+                <th className="p-2 border border-slate-900 text-right">Nilai Rupiah</th>
+                <th className="p-2 border border-slate-900">Penjelasan / Rasio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="p-2 border border-slate-900 font-semibold">Total Pemasukan (Omset Kotor)</td>
+                <td className="p-2 border border-slate-900 text-right font-mono font-bold text-emerald-800">{formatRupiah(aggregatedStats.totalIncome)}</td>
+                <td className="p-2 border border-slate-900">Dana masuk dari total {filteredTransactions.filter(tx => tx.type === 'masuk').length} transaksi penjualan/pendapatan.</td>
+              </tr>
+              <tr>
+                <td className="p-2 border border-slate-900 font-semibold">Total HPP / Modal Kulakan</td>
+                <td className="p-2 border border-slate-900 text-right font-mono text-slate-700">{formatRupiah(aggregatedStats.totalHpp)}</td>
+                <td className="p-2 border border-slate-900">Rasio HPP terhadap omset: <span className="font-bold">{aggregatedStats.totalIncome > 0 ? Math.round((aggregatedStats.totalHpp / aggregatedStats.totalIncome) * 100) : 0}%</span></td>
+              </tr>
+              <tr className="bg-slate-50">
+                <td className="p-2 border border-slate-900 font-bold">Laba Kotor (Gross Profit)</td>
+                <td className="p-2 border border-slate-900 text-right font-mono font-bold text-slate-900">{formatRupiah(aggregatedStats.grossProfit)}</td>
+                <td className="p-2 border border-slate-900">Margin laba kotor terhadap omset: <span className="font-bold">{aggregatedStats.totalIncome > 0 ? Math.round((aggregatedStats.grossProfit / aggregatedStats.totalIncome) * 100) : 0}%</span></td>
+              </tr>
+              <tr>
+                <td className="p-2 border border-slate-900 font-semibold">Total Pengeluaran (Biaya Operasional)</td>
+                <td className="p-2 border border-slate-900 text-right font-mono text-rose-800">{formatRupiah(aggregatedStats.totalExpense)}</td>
+                <td className="p-2 border border-slate-900">Dana keluar dari total {filteredTransactions.filter(tx => tx.type === 'keluar').length} pengeluaran/belanja.</td>
+              </tr>
+              <tr className="bg-slate-100 font-bold text-sm">
+                <td className="p-2 border border-slate-900">Arus Kas Bersih (Sisa Saldo Buku)</td>
+                <td className="p-2 border border-slate-900 text-right font-mono">{formatRupiah(aggregatedStats.bookEndingBalance)}</td>
+                <td className="p-2 border border-slate-900">Saldo Akhir Buku = Saldo Awal Fisik + Total Masuk - Total Keluar</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Section: Evaluasi Kasir Fisik */}
+        <div className="mb-6">
+          <h3 className="text-xs uppercase font-bold tracking-wider text-slate-950 border-b border-slate-900 pb-1.5 mb-3">2. EVALUASI DAN ANALISIS KECOCOKAN KAS</h3>
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-slate-100 font-bold">
+                <th className="p-2 border border-slate-900">Indikator</th>
+                <th className="p-2 border border-slate-900 text-right font-mono">Nilai (IDR)</th>
+                <th className="p-2 border border-slate-900">Status / Catatan Diagnostik</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="p-2 border border-slate-900">Saldo Awal Fisik Hari Ini</td>
+                <td className="p-2 border border-slate-900 text-right font-mono">{formatRupiah(dailyOpeningPhysical)}</td>
+                <td className="p-2 border border-slate-900 text-slate-500">Saldo kas yang dipegang di awal hari kerja</td>
+              </tr>
+              <tr>
+                <td className="p-2 border border-slate-900">Sisa Saldo Kas Seharusnya (Catatan Buku)</td>
+                <td className="p-2 border border-slate-900 text-right font-mono font-bold">{formatRupiah(dailyBookBalance)}</td>
+                <td className="p-2 border border-slate-900 text-slate-500">Hasil perhitungan otomatis sistem (Awal + Masuk - Keluar)</td>
+              </tr>
+              <tr>
+                <td className="p-2 border border-slate-900">Jumlah Uang Fisik Aktual di Laci Kasir</td>
+                <td className="p-2 border border-slate-900 text-right font-mono font-bold">
+                  {dailyClosingPhysical !== undefined ? formatRupiah(dailyClosingPhysical) : 'Belum diisi'}
+                </td>
+                <td className="p-2 border border-slate-900 text-slate-500">Jumlah riil yang dihitung kasir secara manual</td>
+              </tr>
+              <tr className={`font-bold ${dailyDiscrepancy === 0 ? 'bg-emerald-50 text-emerald-950' : dailyDiscrepancy !== null && dailyDiscrepancy < 0 ? 'bg-rose-50 text-rose-950' : 'bg-amber-50 text-amber-950'}`}>
+                <td className="p-2 border border-slate-900">Selisih Kas / Discrepancy</td>
+                <td className="p-2 border border-slate-900 text-right font-mono">
+                  {dailyDiscrepancy !== null ? (dailyDiscrepancy >= 0 ? '+' : '') + formatRupiah(dailyDiscrepancy) : 'Belum dihitung'}
+                </td>
+                <td className="p-2 border border-slate-900">
+                  {dailyDiscrepancy === null 
+                    ? 'Uang fisik belum dimasukkan, analisis tidak dapat dilakukan.' 
+                    : dailyDiscrepancy === 0 
+                      ? 'PAS & SEIMBANG! Tidak ada kebocoran atau kesalahan pencatatan.' 
+                      : dailyDiscrepancy < 0 
+                        ? 'KEKURANGAN FISIK! Ada pengeluaran yang tidak dicatat, atau kesalahan pemberian kembalian.' 
+                        : 'KELEBIHAN FISIK! Ada pemasukan yang belum dicatat, atau kelebihan uang pribadi.'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Section: Riwayat Transaksi Lengkap */}
+        <div className="mb-6">
+          <h3 className="text-xs uppercase font-bold tracking-wider text-slate-950 border-b border-slate-900 pb-1.5 mb-3">3. RIWAYAT TRANSAKSI JURNAL</h3>
+          {filteredTransactions.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">Tidak ada transaksi yang tercatat dalam jangka waktu ini.</p>
+          ) : (
+            <table className="w-full text-left text-[10px]">
+              <thead>
+                <tr className="bg-slate-100 font-bold">
+                  <th className="p-1.5 border border-slate-900 text-center w-8">No</th>
+                  <th className="p-1.5 border border-slate-900 w-24">Tanggal</th>
+                  <th className="p-1.5 border border-slate-900">Deskripsi</th>
+                  <th className="p-1.5 border border-slate-900 w-20">Kategori</th>
+                  <th className="p-1.5 border border-slate-900 w-16">Metode</th>
+                  <th className="p-1.5 border border-slate-900 w-16 text-center">Tipe</th>
+                  <th className="p-1.5 border border-slate-900 text-right w-28 font-mono">Nominal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTransactions.map((tx, idx) => (
+                  <tr key={tx.id}>
+                    <td className="p-1.5 border border-slate-900 text-center">{idx + 1}</td>
+                    <td className="p-1.5 border border-slate-900">{getFormattedDate(tx.date)}</td>
+                    <td className="p-1.5 border border-slate-900 font-medium">{tx.description}</td>
+                    <td className="p-1.5 border border-slate-900 capitalize">{tx.category}</td>
+                    <td className="p-1.5 border border-slate-900 capitalize">{tx.paymentMethod || 'Tunai'}</td>
+                    <td className={`p-1.5 border border-slate-900 text-center font-bold ${tx.type === 'masuk' ? 'text-emerald-800' : 'text-rose-800'}`}>
+                      {tx.type === 'masuk' ? 'MASUK' : 'KELUAR'}
+                    </td>
+                    <td className={`p-1.5 border border-slate-900 text-right font-mono font-semibold ${tx.type === 'masuk' ? 'text-emerald-800' : 'text-rose-800'}`}>
+                      {tx.type === 'masuk' ? '+' : '-'}{formatRupiah(tx.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Footer Tanda Tangan */}
+        <div className="mt-12 flex justify-between items-end text-xs">
+          <div>
+            <p className="text-slate-500">Laporan Keuangan Otomatis SIKU</p>
+            <p className="text-slate-400 text-[10px] mt-0.5">Sistem Informasi Keuangan Usaha Berbasis Cloud</p>
+          </div>
+          <div className="text-center w-48 border-t border-dashed border-slate-400 pt-2">
+            <p className="font-bold text-slate-800">{settings?.shopName || 'Pemilik Toko'}</p>
+            <p className="text-[10px] text-slate-400 mt-1">Tanda Tangan & Cap Resmi</p>
+          </div>
+        </div>
       </div>
 
     </div>

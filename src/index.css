@@ -7,6 +7,8 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+@variant dark (&:where(.dark, .dark *));
+
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -21,4 +23,231 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.5);
+}
+
+/* Custom premium dark mode system overrides */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body,
+.dark .min-h-screen,
+.dark .bg-slate-50,
+.dark #app-root-container {
+  background-color: #0b0f19 !important; /* Premium deep dark background */
+  color: #e2e8f0 !important;
+}
+
+/* Override white cards to elegant dark glass panels */
+.dark .bg-white,
+.dark .bg-white\/90 {
+  background-color: #111827 !important; /* bg-gray-900 */
+  border-color: #1f2937 !important; /* border-gray-800 */
+  color: #f1f5f9 !important;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1f2937 !important;
+  color: #f8fafc !important;
+}
+
+.dark .bg-slate-100\/80 {
+  background-color: rgba(31, 41, 55, 0.8) !important;
+}
+
+.dark .bg-slate-200 {
+  background-color: #374151 !important;
+  color: #f9fafb !important;
+}
+
+.dark .bg-slate-50 {
+  background-color: #0b0f19 !important;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-200\/50,
+.dark .border-slate-200\/80,
+.dark .border-slate-100,
+.dark .border-slate-300 {
+  border-color: #1f2937 !important; /* border-gray-800 */
+}
+
+/* Text elements */
+.dark .text-slate-900,
+.dark .text-slate-850,
+.dark .text-slate-800,
+.dark h1, .dark h2, .dark h3 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: #9ca3af !important;
+}
+
+/* Tables and records */
+.dark table thead tr {
+  background-color: #111827 !important;
+  border-color: #1f2937 !important;
+}
+
+.dark table tbody tr {
+  border-color: #1f2937 !important;
+}
+
+.dark table tbody tr:hover {
+  background-color: #1f2937 !important;
+}
+
+/* Form controls */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #f9fafb !important;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #4b5563 !important;
+  background-color: #111827 !important;
+}
+
+/* Sidebar overrides */
+.dark aside,
+.dark .bg-slate-900 {
+  background-color: #090d16 !important;
+}
+
+/* Info and callout boxes */
+.dark .bg-blue-50 {
+  background-color: rgba(30, 41, 59, 0.4) !important;
+  border-color: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+.dark .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.3) !important;
+  border-color: #064e3b !important;
+  color: #a7f3d0 !important;
+}
+
+.dark .bg-rose-50 {
+  background-color: rgba(136, 19, 55, 0.3) !important;
+  border-color: #881337 !important;
+  color: #fca5a5 !important;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-50\/50 {
+  background-color: rgba(120, 53, 4, 0.25) !important;
+  border-color: #78350f !important;
+  color: #fde68a !important;
+}
+
+/* Dynamic chart grid & label colors */
+.dark .recharts-cartesian-grid-horizontal line,
+.dark .recharts-cartesian-grid-vertical line {
+  stroke: #1f2937 !important;
+}
+
+.dark .recharts-text {
+  fill: #9ca3af !important;
+}
+
+/* Print CSS Overrides */
+@media print {
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide entire screen containers and elements */
+  aside,
+  header,
+  nav,
+  #app-header,
+  #sidebar-toggle-btn,
+  #active-module-header,
+  #header-theme-quick-toggle,
+  .no-print,
+  button,
+  form,
+  .recharts-responsive-container,
+  #trend-chart-card,
+  #physical-cash-matching {
+    display: none !important;
+  }
+
+  /* Reset main workspace wrapper */
+  main,
+  #app-root-container,
+  .max-w-7xl {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: none !important;
+  }
+
+  /* Make sure the printed content covers the page correctly */
+  #summary-container {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide active screen-only bento grids, and only display print layout */
+  .screen-only-grid {
+    display: none !important;
+  }
+
+  /* Ensure our custom printable section displays perfectly on print */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Tables formatting for clean print */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  
+  th, td {
+    border: 1px solid #111111 !important;
+    padding: 6px 8px !important;
+    font-size: 9.5pt !important;
+    color: #000000 !important;
+    background: transparent !important;
+  }
+
+  th {
+    font-weight: bold !important;
+    background-color: #f3f4f6 !important;
+  }
+
+  /* Avoid breaking pages inside table rows */
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  /* Clean headings */
+  h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    page-break-after: avoid !important;
+  }
 }
