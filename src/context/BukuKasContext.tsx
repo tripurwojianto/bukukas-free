@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { BukuKasData, ShopProfile, Category, Penjualan, Pengeluaran, Kasbon, PembayaranKasbon, Pelanggan, AppLog } from '../types';
-import { initialBukuKasData, defaultCategories } from '../utils/defaultData';
+import { BukuKasData, ShopProfile, Category, Penjualan, Pengeluaran, Kasbon, PembayaranKasbon, Pelanggan, AppLog, SyncQueueItem } from '../types';
+import { initialBukuKasData, defaultCategories, getGuestDemoData } from '../utils/defaultData';
 import { initAuth, googleSignIn, googleSignInWithSheets, logout as firebaseLogout, setAccessToken } from '../lib/firebase';
 import { findSpreadsheet, createSpreadsheet, fetchBukuKasData, backupBukuKasData, backupDataToGoogleDrive, restoreDataFromGoogleDrive } from '../lib/sheetsService';
 import { User } from 'firebase/auth';
@@ -43,6 +43,18 @@ interface BukuKasContextType {
   // Drive actions
   backupToDrive: () => Promise<void>;
   restoreFromDrive: () => Promise<void>;
+
+  // Sync queue
+  syncQueue: SyncQueueItem[];
+  processSyncQueue: () => Promise<void>;
+
+  // Guest Read-Only Mode
+  isGuestReadOnly: boolean;
+  setGuestReadOnly: (val: boolean) => void;
+
+  // Offline Full Mode
+  isOfflineMode: boolean;
+  setOfflineMode: (val: boolean) => void;
 }
 
 const BukuKasContext = createContext<BukuKasContextType | undefined>(undefined);
@@ -61,6 +73,36 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [driveSyncStatus, setDriveSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'not_logged_in'>('not_logged_in');
   const [lastDriveSyncTime, setLastDriveSyncTime] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  
+  // Sync queue state
+  const [syncQueue, setSyncQueue] = useState<SyncQueueItem[]>(() => {
+    try {
+      const savedQueue = localStorage.getItem('bukukas_sync_queue');
+      return savedQueue ? JSON.parse(savedQueue) : [];
+    } catch (e) {
+      console.error('Failed to parse sync queue:', e);
+      return [];
+    }
+  });
+
+  const [isGuestReadOnly, setIsGuestReadOnly] = useState<boolean>(() => {
+    return localStorage.getItem('bukukas_guest_readonly') === 'true';
+  });
+
+  const setGuestReadOnly = (val: boolean) => {
+    setIsGuestReadOnly(val);
+    localStorage.setItem('bukukas_guest_readonly', val ? 'true' : 'false');
+  };
+
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(() => {
+    return localStorage.getItem('bukukas_offline_mode') === 'true';
+  });
+
+  const setOfflineMode = (val: boolean) => {
+    setIsOfflineMode(val);
+    localStorage.setItem('bukukas_offline_mode', val ? 'true' : 'false');
+  };
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('bukukas_theme');
     return (savedTheme === 'dark' || savedTheme === 'light') ? savedTheme : 'light';
@@ -182,6 +224,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(result.user);
         setToken(result.accessToken);
         setNeedsAuth(false);
+        setGuestReadOnly(false);
+        setOfflineMode(false);
         localStorage.setItem('bukukas_access_token', result.accessToken);
         alert('Berhasil login dengan akun Google!');
       }
@@ -199,6 +243,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(result.user);
         setToken(result.accessToken);
         setNeedsAuth(false);
+        setGuestReadOnly(false);
+        setOfflineMode(false);
         setIsSheetsConnected(true);
         localStorage.setItem('bukukas_access_token', result.accessToken);
         localStorage.setItem('bukukas_sheets_connected', 'true');
@@ -251,6 +297,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setToken(null);
       setSpreadsheetId(null);
       setIsSheetsConnected(false);
+      setGuestReadOnly(false);
+      setOfflineMode(false);
       setSyncStatus('not_logged_in');
       setDriveSyncStatus('not_logged_in');
       setLastDriveSyncTime(null);
@@ -259,6 +307,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
       localStorage.removeItem('bukukas_sheets_connected');
       localStorage.removeItem('bukukas_last_sync');
       localStorage.removeItem('bukukas_last_drive_sync');
+      localStorage.removeItem('bukukas_guest_readonly');
+      localStorage.removeItem('bukukas_offline_mode');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -434,6 +484,94 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Implement local storage-based sync queue for offline support
+  const processSyncQueue = async (currentQueue?: SyncQueueItem[]) => {
+    const queueToProcess = currentQueue !== undefined ? currentQueue : syncQueue;
+    if (queueToProcess.length === 0) return;
+
+    if (!isSheetsConnected || !token || !spreadsheetId) {
+      console.log('Skipping sync queue processing: Google Sheets is not fully connected.');
+      return;
+    }
+
+    if (!navigator.onLine) {
+      console.log('Skipping sync queue processing: Device is offline.');
+      return;
+    }
+
+    setSyncStatus('syncing');
+    try {
+      // dataSnapshot contains the full database state at that point.
+      // The latest snapshot in the queue contains the complete, final state.
+      const latestItem = queueToProcess[queueToProcess.length - 1];
+      await backupBukuKasData(token, spreadsheetId, latestItem.dataSnapshot);
+      
+      setSyncStatus('success');
+      const now = new Date().toLocaleString('id-ID');
+      setLastSyncTime(now);
+      localStorage.setItem('bukukas_last_sync', now);
+      
+      // Clear the queue state and storage
+      setSyncQueue([]);
+      localStorage.removeItem('bukukas_sync_queue');
+      console.log('Sync queue successfully processed and cleared!');
+    } catch (err) {
+      console.error('Processing sync queue failed:', err);
+      setSyncStatus('error');
+    }
+  };
+
+  const queueOrBackup = async (
+    type: SyncQueueItem['type'],
+    description: string,
+    finalData: BukuKasData
+  ) => {
+    // 1. Always save locally first so changes are stored immediately on the device
+    saveDataLocally(finalData);
+
+    // 2. If sheets is not connected, we don't queue sheets backups
+    if (!isSheetsConnected || !spreadsheetId) {
+      return;
+    }
+
+    // 3. Create a queue item
+    const newItem: SyncQueueItem = {
+      id: `sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date().toISOString(),
+      type,
+      description,
+      dataSnapshot: finalData,
+    };
+
+    // 4. Update the sync queue state and local storage
+    const updatedQueue = [...syncQueue, newItem];
+    setSyncQueue(updatedQueue);
+    localStorage.setItem('bukukas_sync_queue', JSON.stringify(updatedQueue));
+
+    // 5. Try to process the queue immediately (will handle online/offline dynamically)
+    await processSyncQueue(updatedQueue);
+  };
+
+  // Process queue on online event
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('Device returned online. Triggering sync queue processing.');
+      processSyncQueue();
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [syncQueue, token, spreadsheetId, isSheetsConnected]);
+
+  // Process queue on mount, or when token/spreadsheetId/connection state is established
+  useEffect(() => {
+    if (navigator.onLine && isSheetsConnected && token && spreadsheetId && syncQueue.length > 0) {
+      processSyncQueue();
+    }
+  }, [token, spreadsheetId, isSheetsConnected]);
+
   // Local state operations (always saves locally immediately, and syncs in background if token exists)
   const logActivity = (activity: string, currentData: BukuKasData): BukuKasData => {
     const newLog: AppLog = {
@@ -446,15 +584,24 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   };
 
+  const checkReadOnly = (actionName: string): boolean => {
+    if (isGuestReadOnly) {
+      alert(`⚠️ Mode Tamu (Read-Only) Aktif. Anda tidak dapat ${actionName}.`);
+      return true;
+    }
+    return false;
+  };
+
   const updateProfile = (profileUpdate: Partial<ShopProfile>) => {
+    if (checkReadOnly('mengubah profil toko')) return;
     const updatedProfile = { ...data.profile, ...profileUpdate };
     const updatedData = { ...data, profile: updatedProfile };
     const finalData = logActivity(`Profil toko diperbarui: ${profileUpdate.name || updatedProfile.name}`, updatedData);
-    saveDataLocally(finalData);
-    if (token && spreadsheetId) backupToGoogleSheets(token, spreadsheetId, finalData).catch(console.error);
+    queueOrBackup('edit_profil', `Profil toko diperbarui: ${profileUpdate.name || updatedProfile.name}`, finalData);
   };
 
   const addCategory = (type: 'penjualan' | 'pengeluaran', name: string) => {
+    if (checkReadOnly('menambah kategori')) return;
     // Check if category already exists
     if (data.categories.some(c => c.type === type && c.name.toLowerCase() === name.toLowerCase())) {
       return;
@@ -469,11 +616,11 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
       categories: [...data.categories, newCategory],
     };
     const finalData = logActivity(`Kategori baru ditambahkan: ${name} (${type === 'penjualan' ? 'Penjualan' : 'Pengeluaran'})`, updatedData);
-    saveDataLocally(finalData);
-    if (token && spreadsheetId) backupToGoogleSheets(token, spreadsheetId, finalData).catch(console.error);
+    queueOrBackup('tambah_kategori', `Kategori baru ditambahkan: ${name} (${type === 'penjualan' ? 'Penjualan' : 'Pengeluaran'})`, finalData);
   };
 
   const addPenjualan = (item: Omit<Penjualan, 'id'>) => {
+    if (checkReadOnly('menambah transaksi penjualan')) return;
     const newItem: Penjualan = {
       ...item,
       id: `penjualan-${Date.now()}`,
@@ -483,11 +630,11 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
       penjualan: [newItem, ...data.penjualan],
     };
     const finalData = logActivity(`Mencatat penjualan: Rp ${item.amount.toLocaleString()} - ${item.notes || item.category}`, updatedData);
-    saveDataLocally(finalData);
-    if (token && spreadsheetId) backupToGoogleSheets(token, spreadsheetId, finalData).catch(console.error);
+    queueOrBackup('tambah_penjualan', `Mencatat penjualan: Rp ${item.amount.toLocaleString()} - ${item.notes || item.category}`, finalData);
   };
 
   const addPengeluaran = (item: Omit<Pengeluaran, 'id'>) => {
+    if (checkReadOnly('menambah transaksi pengeluaran')) return;
     const newItem: Pengeluaran = {
       ...item,
       id: `pengeluaran-${Date.now()}`,
@@ -497,11 +644,11 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
       pengeluaran: [newItem, ...data.pengeluaran],
     };
     const finalData = logActivity(`Mencatat pengeluaran: Rp ${item.amount.toLocaleString()} - ${item.notes || item.category}`, updatedData);
-    saveDataLocally(finalData);
-    if (token && spreadsheetId) backupToGoogleSheets(token, spreadsheetId, finalData).catch(console.error);
+    queueOrBackup('tambah_pengeluaran', `Mencatat pengeluaran: Rp ${item.amount.toLocaleString()} - ${item.notes || item.category}`, finalData);
   };
 
   const addKasbon = (item: Omit<Kasbon, 'id' | 'status'>) => {
+    if (checkReadOnly('menambah catatan kasbon')) return;
     const newItem: Kasbon = {
       ...item,
       id: `kasbon-${Date.now()}`,
@@ -520,11 +667,11 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
       pelanggan: updatedPelanggan,
     };
     const finalData = logActivity(`Mencatat kasbon baru: ${item.customerName} - Rp ${item.amount.toLocaleString()}`, updatedData);
-    saveDataLocally(finalData);
-    if (token && spreadsheetId) backupToGoogleSheets(token, spreadsheetId, finalData).catch(console.error);
+    queueOrBackup('tambah_kasbon', `Mencatat kasbon baru: ${item.customerName} - Rp ${item.amount.toLocaleString()}`, finalData);
   };
 
   const addPembayaranKasbon = (item: Omit<PembayaranKasbon, 'id'>) => {
+    if (checkReadOnly('melakukan pembayaran kasbon')) return;
     const newItem: PembayaranKasbon = {
       ...item,
       id: `pembayaran-${Date.now()}`,
@@ -570,11 +717,11 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     const finalData = logActivity(`Pembayaran kasbon diterima: ${item.customerName} - Rp ${item.amount.toLocaleString()}`, updatedData);
-    saveDataLocally(finalData);
-    if (token && spreadsheetId) backupToGoogleSheets(token, spreadsheetId, finalData).catch(console.error);
+    queueOrBackup('tambah_pembayaran', `Pembayaran kasbon diterima: ${item.customerName} - Rp ${item.amount.toLocaleString()}`, finalData);
   };
 
   const deleteTransaction = (type: 'penjualan' | 'pengeluaran', id: string) => {
+    if (checkReadOnly('menghapus transaksi')) return;
     let deletedItemName = '';
     const updatedData = { ...data };
     if (type === 'penjualan') {
@@ -588,11 +735,11 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     const finalData = logActivity(`Menghapus catatan ${type}: ${deletedItemName}`, updatedData);
-    saveDataLocally(finalData);
-    if (token && spreadsheetId) backupToGoogleSheets(token, spreadsheetId, finalData).catch(console.error);
+    queueOrBackup('hapus_transaksi', `Menghapus catatan ${type}: ${deletedItemName}`, finalData);
   };
 
   const deleteKasbon = (id: string) => {
+    if (checkReadOnly('menghapus catatan kasbon')) return;
     const item = data.kasbon.find(k => k.id === id);
     if (!item) return;
 
@@ -608,14 +755,20 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     const finalData = logActivity(`Menghapus kasbon: ${item.customerName} - Rp ${item.amount.toLocaleString()}`, updatedData);
-    saveDataLocally(finalData);
-    if (token && spreadsheetId) backupToGoogleSheets(token, spreadsheetId, finalData).catch(console.error);
+    queueOrBackup('hapus_kasbon', `Menghapus kasbon: ${item.customerName} - Rp ${item.amount.toLocaleString()}`, finalData);
+  };
+
+  const getActiveData = (): BukuKasData => {
+    if (isGuestReadOnly) {
+      return getGuestDemoData();
+    }
+    return data;
   };
 
   return (
     <BukuKasContext.Provider
       value={{
-        data,
+        data: getActiveData(),
         isLoading,
         user,
         needsAuth,
@@ -644,6 +797,12 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
         restoreFromDrive,
         theme,
         toggleTheme,
+        syncQueue,
+        processSyncQueue,
+        isGuestReadOnly,
+        setGuestReadOnly,
+        isOfflineMode,
+        setOfflineMode,
       }}
     >
       {children}

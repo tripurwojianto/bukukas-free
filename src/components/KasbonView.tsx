@@ -267,7 +267,7 @@ export const KasbonView: React.FC = () => {
             placeholder="Cari pelanggan berdasarkan nama/no WA..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
+            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
           />
         </div>
 
@@ -439,7 +439,7 @@ export const KasbonView: React.FC = () => {
                         type="date"
                         value={paymentDate}
                         onChange={(e) => setPaymentDate(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none"
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none text-slate-800 dark:text-slate-800 font-bold"
                         required
                       />
                     </div>
@@ -450,7 +450,7 @@ export const KasbonView: React.FC = () => {
                         placeholder="e.g. 50000"
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                         required
                         min="1"
                       />
@@ -581,7 +581,7 @@ export const KasbonView: React.FC = () => {
                     placeholder="Ketik nama pelanggan..."
                     value={newCustomerName}
                     onChange={(e) => setNewCustomerName(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
+                    className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                     required
                   />
                 </div>
@@ -615,7 +615,7 @@ export const KasbonView: React.FC = () => {
                     placeholder="e.g. 08123456789"
                     value={newCustomerPhone}
                     onChange={(e) => setNewCustomerPhone(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
+                    className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                   />
                 </div>
                 <p className="text-[9px] text-slate-400 font-medium mt-1">Berguna untuk mengirimkan pesan tagihan langsung.</p>
@@ -629,7 +629,7 @@ export const KasbonView: React.FC = () => {
                     type="date"
                     value={newKasbonDate}
                     onChange={(e) => setNewKasbonDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-slate-800 dark:text-slate-800 font-bold"
                     required
                   />
                 </div>
@@ -640,7 +640,7 @@ export const KasbonView: React.FC = () => {
                     placeholder="Nominal kasbon"
                     value={newKasbonAmount}
                     onChange={(e) => setNewKasbonAmount(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                     required
                     min="1"
                   />

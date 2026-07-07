@@ -151,7 +151,7 @@ export const TambahView: React.FC = () => {
                 placeholder="0"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className={`w-full pl-12 pr-4 py-3 text-xl font-black bg-slate-50 border rounded-2xl focus:outline-none transition-colors ${
+                className={`w-full pl-12 pr-4 py-3 text-xl font-black bg-slate-50 border rounded-2xl focus:outline-none transition-colors text-slate-800 dark:text-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-400 ${
                   activeType === 'penjualan'
                     ? 'focus:border-emerald-500 focus:bg-white border-slate-200'
                     : 'focus:border-red-500 focus:bg-white border-slate-200'
@@ -160,8 +160,49 @@ export const TambahView: React.FC = () => {
                 min="1"
               />
             </div>
+
+            {/* Shortcut Nominal Buttons */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {[
+                { label: '5rb', value: 5000 },
+                { label: '10rb', value: 10000 },
+                { label: '20rb', value: 20000 },
+                { label: '50rb', value: 50000 },
+                { label: '100rb', value: 100000 },
+                { label: '200rb', value: 200000 },
+                { label: '500rb', value: 500000 },
+              ].map((shortcut) => {
+                const isSelected = parseFloat(amount) === shortcut.value;
+                return (
+                  <button
+                    key={shortcut.value}
+                    type="button"
+                    onClick={() => setAmount(shortcut.value.toString())}
+                    className={`px-3 py-1.5 text-[11px] font-extrabold rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? activeType === 'penjualan'
+                          ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                          : 'bg-red-500 border-red-500 text-white shadow-sm'
+                        : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 dark:text-slate-800'
+                    }`}
+                  >
+                    {shortcut.label}
+                  </button>
+                );
+              })}
+              {amount && (
+                <button
+                  type="button"
+                  onClick={() => setAmount('')}
+                  className="px-3 py-1.5 text-[11px] font-black rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-all cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+
             {amount && (
-              <p className="text-[11px] text-slate-500 font-bold mt-1 pl-1">
+              <p className="text-[11px] text-slate-500 font-bold mt-2 pl-1">
                 Terbaca: {formatRupiah(parseFloat(amount) || 0)}
               </p>
             )}
@@ -180,7 +221,7 @@ export const TambahView: React.FC = () => {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-bold"
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-xs font-bold text-slate-800 dark:text-slate-800"
                 required
               />
             </div>
@@ -212,7 +253,7 @@ export const TambahView: React.FC = () => {
                   placeholder="Kategori baru..."
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none"
+                  className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                   autoFocus
                 />
                 <button
@@ -282,7 +323,7 @@ export const TambahView: React.FC = () => {
                 placeholder="Ketik keterangan barang, pembeli, dll..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-xs h-16 resize-none font-medium"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-xs h-16 resize-none font-medium text-slate-800 dark:text-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-400"
               />
             </div>
           </div>

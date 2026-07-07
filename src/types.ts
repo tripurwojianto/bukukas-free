@@ -72,3 +72,11 @@ export interface BukuKasData {
   pelanggan: Pelanggan[];
   logs: AppLog[];
 }
+
+export interface SyncQueueItem {
+  id: string;
+  timestamp: string;
+  type: 'tambah_penjualan' | 'tambah_pengeluaran' | 'tambah_kasbon' | 'tambah_pembayaran' | 'hapus_transaksi' | 'hapus_kasbon' | 'edit_profil' | 'tambah_kategori' | 'umum';
+  description: string;
+  dataSnapshot: BukuKasData;
+}

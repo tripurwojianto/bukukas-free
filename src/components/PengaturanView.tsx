@@ -3,7 +3,7 @@ import { useBukuKas } from '../context/BukuKasContext';
 import { User, Phone, MapPin, Store, Star, ArrowRight, CheckCircle2, RefreshCw, Sparkles, LogOut, Check, Bell, HardDrive, UploadCloud, DownloadCloud, Sun, Moon } from 'lucide-react';
 
 export const PengaturanView: React.FC = () => {
-  const { data, updateProfile, user, handleLogout, loginWithGoogle, spreadsheetId, isSheetsConnected, connectSheets, disconnectSheets, lastSyncTime, syncStatus, backupToDrive, restoreFromDrive, driveSyncStatus, lastDriveSyncTime, theme, toggleTheme } = useBukuKas();
+  const { data, updateProfile, user, handleLogout, loginWithGoogle, spreadsheetId, isSheetsConnected, connectSheets, disconnectSheets, lastSyncTime, syncStatus, backupToDrive, restoreFromDrive, driveSyncStatus, lastDriveSyncTime, theme, toggleTheme, syncQueue, processSyncQueue, isGuestReadOnly, setGuestReadOnly } = useBukuKas();
 
   // Profile edit states
   const [name, setName] = useState(data.profile.name || '');
@@ -52,6 +52,39 @@ export const PengaturanView: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      {/* Mode Tamu (Read-Only) Status */}
+      {isGuestReadOnly && (
+        <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-2xl shadow-sm space-y-4 animate-fade-in text-left">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">👤</span>
+            <div>
+              <h2 className="text-sm font-black text-amber-600 dark:text-amber-400">Mode Tamu (Read-Only) Aktif</h2>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">Anda sedang menjelajahi BukuKas menggunakan data sampel.</p>
+            </div>
+          </div>
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-semibold">
+            Dalam Mode Tamu, Anda dapat melihat seluruh visualisasi laporan, grafik profit, dan kasbon secara interaktif. Namun, Anda tidak dapat mengubah data, mencatat transaksi baru, atau menyinkronkan data ke cloud. Hubungkan akun Google Anda untuk mengaktifkan seluruh fitur.
+          </p>
+          <div className="flex gap-2.5 pt-1">
+            <button
+              onClick={() => {
+                setGuestReadOnly(false);
+                alert('Keluar dari Mode Tamu. Silakan masuk menggunakan akun Google atau gunakan mode offline.');
+              }}
+              className="flex-1 py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 text-white font-black text-[11px] rounded-xl transition-all cursor-pointer text-center border border-slate-700/50"
+            >
+              🚪 Keluar Mode Tamu
+            </button>
+            <button
+              onClick={() => loginWithGoogle().catch(console.error)}
+              className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] rounded-xl transition-all cursor-pointer text-center shadow-md shadow-indigo-600/15"
+            >
+              🔑 Hubungkan Google
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Profile Form */}
       <div className="bg-white dark:bg-slate-800/80 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
         <h2 className="text-base font-black text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
@@ -79,7 +112,7 @@ export const PengaturanView: React.FC = () => {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                 placeholder="e.g. Warung Sembako Berkah"
                 required
               />
@@ -119,7 +152,7 @@ export const PengaturanView: React.FC = () => {
                   type="text"
                   value={ownerName}
                   onChange={(e) => setOwnerName(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                   placeholder="Nama Pemilik"
                   required
                 />
@@ -138,7 +171,7 @@ export const PengaturanView: React.FC = () => {
                   type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white"
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                   placeholder="Nomor WA"
                 />
               </div>
@@ -156,7 +189,7 @@ export const PengaturanView: React.FC = () => {
               <textarea
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white h-12 resize-none"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white h-12 resize-none text-slate-800 dark:text-slate-800 font-bold placeholder:text-slate-400 dark:placeholder:text-slate-400"
                 placeholder="Alamat Toko"
               />
             </div>
@@ -196,7 +229,7 @@ export const PengaturanView: React.FC = () => {
                   type="time"
                   value={reminderTime}
                   onChange={(e) => setReminderTime(e.target.value)}
-                  className="bg-white border border-indigo-200 text-indigo-950 rounded-lg px-2.5 py-1 text-xs font-black focus:outline-none focus:border-indigo-500"
+                  className="bg-white border border-indigo-200 text-slate-800 dark:text-slate-800 rounded-lg px-2.5 py-1 text-xs font-black focus:outline-none focus:border-indigo-500"
                 />
               </div>
             )}
@@ -299,6 +332,33 @@ export const PengaturanView: React.FC = () => {
                 <span>Sinkronisasi Terakhir:</span>
                 <span className="font-bold text-slate-700 dark:text-slate-300">{lastSyncTime || 'Belum tersinkron'}</span>
               </p>
+              {syncQueue && syncQueue.length > 0 ? (
+                <div className="pt-2 border-t border-amber-200/40 mt-2">
+                  <p className="text-amber-600 dark:text-amber-400 font-bold text-[10px] flex justify-between items-center">
+                    <span>⚠️ Antrean Sinkronisasi (Offline):</span>
+                    <span className="bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded font-black text-amber-800 dark:text-amber-300">
+                      {syncQueue.length} Transaksi Tertunda
+                    </span>
+                  </p>
+                  <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-1 leading-normal">
+                    Transaksi tersimpan aman secara lokal di HP ini. Sinkronisasi ke Google Sheets akan berjalan otomatis setelah koneksi internet Anda pulih.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => processSyncQueue()}
+                    disabled={syncStatus === 'syncing'}
+                    className="w-full mt-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-[10px] font-black rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                    Sync Sekarang (Paksa)
+                  </button>
+                </div>
+              ) : (
+                <p className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold pt-1 border-t border-emerald-100/10 mt-1">
+                  <span>Status Antrean:</span>
+                  <span>✅ Semua data tersinkron</span>
+                </p>
+              )}
               {spreadsheetId && (
                 <p className="pt-2 text-center">
                   <a
