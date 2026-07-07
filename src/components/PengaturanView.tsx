@@ -3,7 +3,7 @@ import { useBukuKas } from '../context/BukuKasContext';
 import { User, Phone, MapPin, Store, Star, ArrowRight, CheckCircle2, RefreshCw, Sparkles, LogOut, Check, Bell, HardDrive, UploadCloud, DownloadCloud, Sun, Moon } from 'lucide-react';
 
 export const PengaturanView: React.FC = () => {
-  const { data, updateProfile, user, handleLogout, loginWithGoogle, spreadsheetId, lastSyncTime, syncStatus, backupToDrive, restoreFromDrive, driveSyncStatus, lastDriveSyncTime, theme, toggleTheme } = useBukuKas();
+  const { data, updateProfile, user, handleLogout, loginWithGoogle, spreadsheetId, isSheetsConnected, connectSheets, disconnectSheets, lastSyncTime, syncStatus, backupToDrive, restoreFromDrive, driveSyncStatus, lastDriveSyncTime, theme, toggleTheme } = useBukuKas();
 
   // Profile edit states
   const [name, setName] = useState(data.profile.name || '');
@@ -269,34 +269,35 @@ export const PengaturanView: React.FC = () => {
           Koneksi Google Sheets
         </h2>
 
-        {user ? (
-          <div className="space-y-3">
-            {/* User credentials */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-slate-700 truncate">{user.displayName || 'Google User'}</p>
-                <p className="text-[10px] text-slate-400 font-medium truncate">{user.email}</p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="text-[10px] bg-white hover:bg-red-50 border border-slate-200 text-red-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                Sign Out
-              </button>
+        {user && (
+          <div className="p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-3 animate-fade-in">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{user.displayName || 'Google User'}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">{user.email}</p>
             </div>
+            <button
+              onClick={handleLogout}
+              className="text-[10px] bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/20 border border-slate-200 dark:border-slate-700 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out
+            </button>
+          </div>
+        )}
 
+        {isSheetsConnected ? (
+          <div className="space-y-3 animate-fade-in">
             {/* Spreadsheet URL info */}
-            <div className="text-[10px] text-slate-500 font-medium space-y-1 bg-indigo-50/40 p-3 rounded-xl border border-indigo-100/50">
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium space-y-1 bg-indigo-50/40 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30">
               <p className="flex justify-between">
                 <span>Spreadsheet ID:</span>
-                <span className="font-mono font-bold text-slate-700 select-all max-w-[150px] truncate">
+                <span className="font-mono font-bold text-slate-700 dark:text-slate-300 select-all max-w-[150px] truncate">
                   {spreadsheetId || 'Menghubungkan...'}
                 </span>
               </p>
               <p className="flex justify-between">
                 <span>Sinkronisasi Terakhir:</span>
-                <span className="font-bold text-slate-700">{lastSyncTime || 'Belum tersinkron'}</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300">{lastSyncTime || 'Belum tersinkron'}</span>
               </p>
               {spreadsheetId && (
                 <p className="pt-2 text-center">
@@ -304,25 +305,45 @@ export const PengaturanView: React.FC = () => {
                     href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-indigo-600 hover:text-indigo-800 font-bold underline text-[9px]"
+                    className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-bold underline text-[9px]"
                   >
                     Buka Spreadsheet Database Anda ↗
                   </a>
                 </p>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={disconnectSheets}
+              className="w-full text-center py-2 bg-red-50 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+            >
+              Putuskan Google Sheets Cloud Sync
+            </button>
           </div>
         ) : (
-          <div className="p-5 border border-dashed border-slate-200 rounded-2xl bg-slate-50 text-center space-y-3.5">
-            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+          <div className="p-5 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-900/20 text-center space-y-3.5 animate-fade-in">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
               Hubungkan BukuKas ke Google Sheets untuk mencadangkan data secara otomatis dan memulihkannya kapan saja.
             </p>
-            <button
-              onClick={loginWithGoogle}
-              className="mx-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-md"
-            >
-              Sign In with Google
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
+              {!user && (
+                <button
+                  type="button"
+                  onClick={loginWithGoogle}
+                  className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm"
+                >
+                  Sign In with Google
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={connectSheets}
+                className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-md"
+              >
+                Hubungkan Google Sheets Cloud Sync
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -333,19 +354,19 @@ export const PengaturanView: React.FC = () => {
           <HardDrive className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-pulse" />
           Cadangan Google Drive (Manual)
         </h2>
-        <p className="text-[11px] text-slate-500 leading-relaxed">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
           Amankan seluruh pembukuan Anda dengan menyimpannya secara manual ke Google Drive sebagai file cadangan JSON (`BukuKas_Backup_Database.json`). Anda dapat memulihkannya kapan saja di perangkat lain dengan aman.
         </p>
 
-        {user ? (
-          <div className="space-y-3.5">
-            <div className="text-[10px] text-indigo-950 font-medium space-y-1 bg-indigo-50/40 p-3 rounded-xl border border-indigo-100/50">
+        {isSheetsConnected ? (
+          <div className="space-y-3.5 animate-fade-in">
+            <div className="text-[10px] text-indigo-950 dark:text-indigo-300 font-medium space-y-1 bg-indigo-50/40 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30">
               <p className="flex justify-between">
                 <span>Status Sinkronisasi Drive:</span>
                 <span className={`font-black ${
                   driveSyncStatus === 'syncing' ? 'text-amber-600' :
-                  driveSyncStatus === 'success' ? 'text-emerald-600' :
-                  driveSyncStatus === 'error' ? 'text-red-600' : 'text-slate-600'
+                  driveSyncStatus === 'success' ? 'text-emerald-600 animate-pulse' :
+                  driveSyncStatus === 'error' ? 'text-red-600' : 'text-slate-600 dark:text-slate-400'
                 }`}>
                   {driveSyncStatus === 'syncing' ? '🔄 Mengunggah...' :
                    driveSyncStatus === 'success' ? '✅ Berhasil Sinkron' :
@@ -354,7 +375,7 @@ export const PengaturanView: React.FC = () => {
               </p>
               <p className="flex justify-between">
                 <span>Penyimpanan Terakhir ke Drive:</span>
-                <span className="font-bold text-slate-700">{lastDriveSyncTime || 'Belum pernah disimpan'}</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300">{lastDriveSyncTime || 'Belum pernah disimpan'}</span>
               </p>
             </div>
 
@@ -370,23 +391,23 @@ export const PengaturanView: React.FC = () => {
               <button
                 onClick={restoreFromDrive}
                 disabled={driveSyncStatus === 'syncing'}
-                className="flex-1 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-black rounded-xl shadow-sm cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-colors"
+                className="flex-1 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-black rounded-xl shadow-sm cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-colors"
               >
-                <DownloadCloud className="w-4 h-4 text-indigo-600" />
+                <DownloadCloud className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 Pulihkan dari Drive
               </button>
             </div>
           </div>
         ) : (
-          <div className="p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50 text-center space-y-3">
-            <p className="text-[10px] text-slate-500 font-semibold leading-relaxed">
-              Hubungkan ke akun Google Anda terlebih dahulu untuk mencadangkan data langsung ke Google Drive Anda sendiri.
+          <div className="p-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900/20 text-center space-y-3">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+              Hubungkan ke Google Sheets Cloud Sync terlebih dahulu untuk mengaktifkan fitur penyimpanan file database cadangan di Google Drive Anda.
             </p>
             <button
-              onClick={loginWithGoogle}
+              onClick={connectSheets}
               className="mx-auto flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] uppercase px-4 py-2 rounded-xl transition-all cursor-pointer shadow-sm"
             >
-              Hubungkan Akun Google
+              Hubungkan Google Sheets Cloud Sync
             </button>
           </div>
         )}

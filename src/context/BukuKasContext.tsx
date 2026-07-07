@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { BukuKasData, ShopProfile, Category, Penjualan, Pengeluaran, Kasbon, PembayaranKasbon, Pelanggan, AppLog } from '../types';
 import { initialBukuKasData, defaultCategories } from '../utils/defaultData';
-import { initAuth, googleSignIn, logout as firebaseLogout, setAccessToken } from '../lib/firebase';
+import { initAuth, googleSignIn, googleSignInWithSheets, logout as firebaseLogout, setAccessToken } from '../lib/firebase';
 import { findSpreadsheet, createSpreadsheet, fetchBukuKasData, backupBukuKasData, backupDataToGoogleDrive, restoreDataFromGoogleDrive } from '../lib/sheetsService';
 import { User } from 'firebase/auth';
 
@@ -11,6 +11,7 @@ interface BukuKasContextType {
   user: User | null;
   needsAuth: boolean;
   spreadsheetId: string | null;
+  isSheetsConnected: boolean;
   syncStatus: 'idle' | 'syncing' | 'success' | 'error' | 'not_logged_in';
   lastSyncTime: string | null;
   driveSyncStatus: 'idle' | 'syncing' | 'success' | 'error' | 'not_logged_in';
@@ -21,6 +22,8 @@ interface BukuKasContextType {
   // Auth actions
   loginWithGoogle: () => Promise<void>;
   handleLogout: () => Promise<void>;
+  connectSheets: () => Promise<void>;
+  disconnectSheets: () => Promise<void>;
   
   // Data actions
   updateProfile: (profile: Partial<ShopProfile>) => void;
@@ -50,6 +53,9 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [user, setUser] = useState<User | null>(null);
   const [needsAuth, setNeedsAuth] = useState<boolean>(true);
   const [spreadsheetId, setSpreadsheetId] = useState<string | null>(null);
+  const [isSheetsConnected, setIsSheetsConnected] = useState<boolean>(() => {
+    return localStorage.getItem('bukukas_sheets_connected') === 'true';
+  });
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'not_logged_in'>('not_logged_in');
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [driveSyncStatus, setDriveSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'not_logged_in'>('not_logged_in');
@@ -119,8 +125,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setToken(accessToken);
         setAccessToken(accessToken);
         setNeedsAuth(false);
-        setSyncStatus('idle');
-        setDriveSyncStatus('idle');
+        setSyncStatus(localStorage.getItem('bukukas_sheets_connected') === 'true' ? 'idle' : 'not_logged_in');
+        setDriveSyncStatus(localStorage.getItem('bukukas_sheets_connected') === 'true' ? 'idle' : 'not_logged_in');
         localStorage.setItem('bukukas_access_token', accessToken);
         
         // Update user profile email in our local data if not present
@@ -136,19 +142,22 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return prev;
         });
 
-        // Try to automatically find or create Spreadsheet
-        try {
-          let ssId = spreadsheetId;
-          if (!ssId) {
-            const foundId = await findSpreadsheet(accessToken);
-            if (foundId) {
-              ssId = foundId;
-              setSpreadsheetId(foundId);
-              localStorage.setItem('bukukas_spreadsheet_id', foundId);
+        // Try to automatically find or create Spreadsheet ONLY if Sheets is connected
+        const hasConnectedSheets = localStorage.getItem('bukukas_sheets_connected') === 'true';
+        if (hasConnectedSheets) {
+          try {
+            let ssId = spreadsheetId;
+            if (!ssId) {
+              const foundId = await findSpreadsheet(accessToken);
+              if (foundId) {
+                ssId = foundId;
+                setSpreadsheetId(foundId);
+                localStorage.setItem('bukukas_spreadsheet_id', foundId);
+              }
             }
+          } catch (err) {
+            console.error('Auto-linking spreadsheet failed:', err);
           }
-        } catch (err) {
-          console.error('Auto-linking spreadsheet failed:', err);
         }
       },
       () => {
@@ -173,15 +182,33 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(result.user);
         setToken(result.accessToken);
         setNeedsAuth(false);
-        setSyncStatus('idle');
-        setDriveSyncStatus('idle');
         localStorage.setItem('bukukas_access_token', result.accessToken);
+        alert('Berhasil login dengan akun Google!');
+      }
+    } catch (error) {
+      console.error('Google Login Error:', error);
+      alert('Gagal masuk dengan Google: ' + (error as Error).message);
+    }
+  };
 
-        // Fetch or create spreadsheet on successful login
+  const connectSheets = async () => {
+    try {
+      setSyncStatus('syncing');
+      const result = await googleSignInWithSheets();
+      if (result) {
+        setUser(result.user);
+        setToken(result.accessToken);
+        setNeedsAuth(false);
+        setIsSheetsConnected(true);
+        localStorage.setItem('bukukas_access_token', result.accessToken);
+        localStorage.setItem('bukukas_sheets_connected', 'true');
+
+        // Fetch or create spreadsheet on successful connection
         const ssId = await findSpreadsheet(result.accessToken);
         if (ssId) {
           setSpreadsheetId(ssId);
           localStorage.setItem('bukukas_spreadsheet_id', ssId);
+          setSyncStatus('idle');
           // Trigger automatic restore/prompt
           const confirmed = window.confirm('Ditemukan data cadangan BukuKas di Google Sheets Anda. Apakah Anda ingin memulihkan (Restore) data tersebut ke HP ini?\n\nKlik OK untuk MEMULIHKAN data dari Google Sheets.\nKlik Batal untuk tetap menggunakan data lokal sekarang dan menimpanya ke Google Sheets nanti.');
           if (confirmed) {
@@ -192,14 +219,29 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const newId = await createSpreadsheet(result.accessToken);
           setSpreadsheetId(newId);
           localStorage.setItem('bukukas_spreadsheet_id', newId);
+          setSyncStatus('idle');
           // Initial backup of local data
           await backupToGoogleSheets(result.accessToken, newId, data);
         }
+        alert('Google Sheets Cloud Sync berhasil terhubung!');
       }
     } catch (error) {
-      console.error('Google Login Error:', error);
-      alert('Gagal masuk dengan Google: ' + (error as Error).message);
+      console.error('Connect Sheets Error:', error);
+      setSyncStatus('error');
+      alert('Gagal menghubungkan Google Sheets Cloud Sync: ' + (error as Error).message);
     }
+  };
+
+  const disconnectSheets = async () => {
+    setSpreadsheetId(null);
+    setIsSheetsConnected(false);
+    setSyncStatus('not_logged_in');
+    setDriveSyncStatus('not_logged_in');
+    localStorage.removeItem('bukukas_spreadsheet_id');
+    localStorage.removeItem('bukukas_sheets_connected');
+    localStorage.removeItem('bukukas_last_sync');
+    localStorage.removeItem('bukukas_last_drive_sync');
+    alert('Koneksi Google Sheets Cloud Sync berhasil diputuskan.');
   };
 
   const handleLogout = async () => {
@@ -208,11 +250,14 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUser(null);
       setToken(null);
       setSpreadsheetId(null);
+      setIsSheetsConnected(false);
       setSyncStatus('not_logged_in');
       setDriveSyncStatus('not_logged_in');
       setLastDriveSyncTime(null);
       localStorage.removeItem('bukukas_spreadsheet_id');
       localStorage.removeItem('bukukas_access_token');
+      localStorage.removeItem('bukukas_sheets_connected');
+      localStorage.removeItem('bukukas_last_sync');
       localStorage.removeItem('bukukas_last_drive_sync');
     } catch (error) {
       console.error('Logout error:', error);
@@ -274,8 +319,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Public Sync triggers
   const backupToSheets = async () => {
-    if (!token || !spreadsheetId) {
-      alert('Silakan masuk dengan Google terlebih dahulu.');
+    if (!isSheetsConnected || !token || !spreadsheetId) {
+      alert('Silakan hubungkan Google Sheets Cloud Sync terlebih dahulu di menu Pengaturan.');
       return;
     }
     const confirmed = window.confirm('Apakah Anda yakin ingin MENCADANGKAN data saat ini ke Google Sheets? Tindakan ini akan menimpa data yang ada di spreadsheet.');
@@ -290,8 +335,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const restoreFromSheets = async () => {
-    if (!token || !spreadsheetId) {
-      alert('Silakan masuk dengan Google terlebih dahulu.');
+    if (!isSheetsConnected || !token || !spreadsheetId) {
+      alert('Silakan hubungkan Google Sheets Cloud Sync terlebih dahulu di menu Pengaturan.');
       return;
     }
     const confirmed = window.confirm('Apakah Anda yakin ingin MEMULIHKAN data dari Google Sheets? Tindakan ini akan menghapus data lokal di HP ini dan menggantinya dengan data dari spreadsheet.');
@@ -306,8 +351,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const backupToDrive = async () => {
-    if (!token) {
-      alert('Silakan masuk dengan Google terlebih dahulu.');
+    if (!isSheetsConnected || !token) {
+      alert('Silakan hubungkan Google Sheets Cloud Sync terlebih dahulu di menu Pengaturan.');
       return;
     }
     const confirmed = window.confirm('Apakah Anda yakin ingin MENCADANGKAN data saat ini ke Google Drive? Tindakan ini akan menyimpan seluruh database Anda dalam sebuah file cadangan BukuKas_Backup_Database.json secara aman.');
@@ -328,8 +373,8 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const restoreFromDrive = async () => {
-    if (!token) {
-      alert('Silakan masuk dengan Google terlebih dahulu.');
+    if (!isSheetsConnected || !token) {
+      alert('Silakan hubungkan Google Sheets Cloud Sync terlebih dahulu di menu Pengaturan.');
       return;
     }
     const confirmed = window.confirm('Apakah Anda yakin ingin MEMULIHKAN data dari Google Drive? Tindakan ini akan menghapus data lokal di HP ini dan menggantinya dengan data cadangan yang ada di Google Drive Anda.');
@@ -575,10 +620,13 @@ export const BukuKasProvider: React.FC<{ children: React.ReactNode }> = ({ child
         user,
         needsAuth,
         spreadsheetId,
+        isSheetsConnected,
         syncStatus,
         lastSyncTime,
         loginWithGoogle,
         handleLogout,
+        connectSheets,
+        disconnectSheets,
         updateProfile,
         addCategory,
         addPenjualan,

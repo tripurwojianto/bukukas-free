@@ -13,9 +13,10 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const provider = new GoogleAuthProvider();
-// Add required scopes
-provider.addScope('https://www.googleapis.com/auth/spreadsheets');
-provider.addScope('https://www.googleapis.com/auth/drive.file');
+
+const sheetsProvider = new GoogleAuthProvider();
+sheetsProvider.addScope('https://www.googleapis.com/auth/spreadsheets');
+sheetsProvider.addScope('https://www.googleapis.com/auth/drive.file');
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
@@ -82,6 +83,41 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
       throw new Error('Proses masuk dibatalkan karena jendela login ditutup.');
     }
     
+    throw error;
+  } finally {
+    isSigningIn = false;
+  }
+};
+
+// Sign in with popup specifically requesting Sheets and Drive scopes
+export const googleSignInWithSheets = async (): Promise<{ user: User; accessToken: string } | null> => {
+  try {
+    isSigningIn = true;
+    const result = await signInWithPopup(auth, sheetsProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (!credential?.accessToken) {
+      throw new Error('Gagal mendapatkan access token dari Google Sheets Auth');
+    }
+    cachedAccessToken = credential.accessToken;
+    return { user: result.user, accessToken: cachedAccessToken };
+  } catch (error: any) {
+    console.error('Sheets Sign in error:', error);
+    if (error?.code === 'auth/unauthorized-domain') {
+      const currentDomain = window.location.hostname;
+      throw new Error(
+        `Domain "${currentDomain}" belum didaftarkan di Firebase Console.\n\n` +
+        `Silakan buka Firebase Console -> Authentication -> Settings -> Authorized Domains, lalu tambahkan "${currentDomain}" agar fitur login Google ini dapat aktif.`
+      );
+    }
+    if (error?.code === 'auth/popup-blocked') {
+      throw new Error(
+        `Popup masuk diblokir oleh browser HP Anda.\n\n` +
+        `Silakan izinkan popup untuk situs ini pada pengaturan browser Anda, atau klik ulang tombol login setelah mengizinkan popup.`
+      );
+    }
+    if (error?.code === 'auth/popup-closed-by-user') {
+      throw new Error('Proses masuk dibatalkan karena jendela login ditutup.');
+    }
     throw error;
   } finally {
     isSigningIn = false;
