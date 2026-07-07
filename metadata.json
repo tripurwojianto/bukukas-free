@@ -1,0 +1,6 @@
+{
+  "name": "BukuKas Free",
+  "description": "Aplikasi pencatatan keuangan harian sederhana untuk UMKM dan toko kelontong dengan penyimpanan Google Sheets dan Google Drive.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
