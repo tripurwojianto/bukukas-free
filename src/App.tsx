@@ -62,6 +62,7 @@ function AppContent() {
 
         {/* Footer */}
         <footer id="app-footer" className="text-center py-4 pb-6 text-[10px] text-slate-400 dark:text-slate-500 font-bold border-t border-slate-100/80 dark:border-slate-800/40 mx-4">
+          &copy; {new Date().getFullYear()}{' '}
           <a
             href="https://www.bukukas.biz.id"
             target="_blank"

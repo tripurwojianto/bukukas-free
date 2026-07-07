@@ -27,12 +27,18 @@ export const initAuth = (
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+      // Check if we have a token in memory or localStorage
+      const storedToken = localStorage.getItem('bukukas_access_token');
+      const tokenToUse = cachedAccessToken || storedToken;
+
+      if (tokenToUse) {
+        if (!cachedAccessToken) {
+          cachedAccessToken = tokenToUse;
+        }
+        if (onAuthSuccess) onAuthSuccess(user, tokenToUse);
       } else if (!isSigningIn) {
-        // Since we reload page sometimes or on fresh load, we can't get the credential's accessToken from onAuthStateChanged directly.
-        // In those cases, we will need to re-login or keep the accessToken cached during the active session.
-        // If there's no cached token but user is logged in, we can prompt them to sign in to renew the token.
+        // No token found, trigger failure
+        cachedAccessToken = null;
         if (onAuthFailure) onAuthFailure();
       }
     } else {
@@ -49,12 +55,33 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
+      throw new Error('Gagal mendapatkan access token dari Firebase Auth');
     }
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error('Sign in error:', error);
+    
+    // Friendly error handling for typical Firebase constraints
+    if (error?.code === 'auth/unauthorized-domain') {
+      const currentDomain = window.location.hostname;
+      throw new Error(
+        `Domain "${currentDomain}" belum didaftarkan di Firebase Console.\n\n` +
+        `Silakan buka Firebase Console -> Authentication -> Settings -> Authorized Domains, lalu tambahkan "${currentDomain}" agar fitur login Google ini dapat aktif.`
+      );
+    }
+    
+    if (error?.code === 'auth/popup-blocked') {
+      throw new Error(
+        `Popup masuk diblokir oleh browser HP Anda.\n\n` +
+        `Silakan izinkan popup untuk situs ini pada pengaturan browser Anda (biasanya di bagian atas kanan layar Chrome/Safari), atau klik ulang tombol login setelah mengizinkan popup.`
+      );
+    }
+
+    if (error?.code === 'auth/popup-closed-by-user') {
+      throw new Error('Proses masuk dibatalkan karena jendela login ditutup.');
+    }
+    
     throw error;
   } finally {
     isSigningIn = false;

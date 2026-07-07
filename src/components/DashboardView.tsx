@@ -1,17 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { useBukuKas } from '../context/BukuKasContext';
 import { getTodayDateString, formatRupiah } from '../utils/defaultData';
-import { TrendingUp, TrendingDown, Landmark, Receipt, CircleCheck, AlertTriangle, CloudRain, CloudLightning, RefreshCw, Smartphone, Bell } from 'lucide-react';
+import { TrendingUp, TrendingDown, Landmark, Receipt, CircleCheck, AlertTriangle, CloudRain, CloudLightning, RefreshCw, Smartphone, Bell, Sparkles, Plus, Check, Zap } from 'lucide-react';
 
 interface DashboardViewProps {
   setActiveTab: (tab: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) => {
-  const { data, syncStatus, lastSyncTime, loginWithGoogle } = useBukuKas();
+  const { data, syncStatus, lastSyncTime, loginWithGoogle, addPenjualan, addPengeluaran } = useBukuKas();
   const todayStr = getTodayDateString();
 
   const [isReminderDismissed, setIsReminderDismissed] = useState(false);
+
+  // --- STATE FOR CATATAN CEPAT ---
+  const [quickType, setQuickType] = useState<'penjualan' | 'pengeluaran'>('penjualan');
+  const [quickAmount, setQuickAmount] = useState<string>('');
+  const [quickNotes, setQuickNotes] = useState<string>('');
+  const [quickCategory, setQuickCategory] = useState<string>('');
+  const [quickSuccess, setQuickSuccess] = useState<string>('');
+
+  const typeCategories = React.useMemo(() => {
+    return data.categories.filter((c) => c.type === quickType);
+  }, [data.categories, quickType]);
+
+  useEffect(() => {
+    if (typeCategories.length > 0) {
+      const defaultCat = typeCategories.find(c => 
+        c.name.includes('Lain-lain') || 
+        c.name.includes('Lainnya') || 
+        c.name.includes('Jasa')
+      ) || typeCategories[0];
+      setQuickCategory(defaultCat.name);
+    } else {
+      setQuickCategory('');
+    }
+  }, [typeCategories]);
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value.replace(/[^0-9]/g, '');
+    if (rawVal === '') {
+      setQuickAmount('');
+      return;
+    }
+    const parsed = parseInt(rawVal, 10);
+    setQuickAmount(parsed.toLocaleString('id-ID'));
+  };
+
+  const handleSaveQuickNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountVal = parseFloat(quickAmount.replace(/[^0-9]/g, ''));
+    if (!amountVal || isNaN(amountVal) || amountVal <= 0) {
+      alert('Silakan masukkan jumlah nominal yang valid!');
+      return;
+    }
+
+    const todayString = getTodayDateString();
+    const noteText = quickNotes.trim() || (quickType === 'penjualan' ? 'Penjualan Cepat' : 'Pengeluaran Cepat');
+
+    if (quickType === 'penjualan') {
+      addPenjualan({
+        date: todayString,
+        category: quickCategory || 'Jasa / Lain-lain',
+        amount: amountVal,
+        notes: noteText,
+      });
+    } else {
+      addPengeluaran({
+        date: todayString,
+        category: quickCategory || 'Pengeluaran Lainnya',
+        amount: amountVal,
+        notes: noteText,
+      });
+    }
+
+    setQuickSuccess(`Mencatat ${quickType === 'penjualan' ? 'Pemasukan' : 'Pengeluaran'} Rp ${amountVal.toLocaleString('id-ID')} (${noteText})!`);
+    setQuickAmount('');
+    setQuickNotes('');
+    
+    setTimeout(() => {
+      setQuickSuccess('');
+    }, 4000);
+  };
 
   // Time-based checks for sore/afternoon daily reminder
   const now = new Date();
@@ -321,22 +391,139 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
       </div>
 
       {/* Outstanding Receivables (Piutang) */}
-      <div className="bg-amber-50/50 rounded-2xl p-4.5 border border-amber-100 shadow-sm flex items-center justify-between">
+      <div className="bg-amber-50/50 dark:bg-amber-950/10 rounded-2xl p-4.5 border border-amber-100 dark:border-amber-900/30 shadow-sm flex items-center justify-between transition-colors">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-center justify-center">
             <Receipt className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[11px] font-bold text-amber-800/80 uppercase tracking-wide mb-0.5">Total Piutang (Kasbon Belum Lunas)</p>
-            <h4 className="text-lg font-black text-amber-900 tracking-tight">{formatRupiah(totalPiutang)}</h4>
+            <p className="text-[11px] font-bold text-amber-800/80 dark:text-amber-400/80 uppercase tracking-wide mb-0.5">Total Piutang (Kasbon Belum Lunas)</p>
+            <h4 className="text-lg font-black text-amber-900 dark:text-amber-300 tracking-tight">{formatRupiah(totalPiutang)}</h4>
           </div>
         </div>
         <button
           onClick={() => setActiveTab('kasbon')}
-          className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl font-bold transition-colors shadow-sm"
+          className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl font-bold transition-colors shadow-sm cursor-pointer"
         >
           Tagih Kasbon
         </button>
+      </div>
+
+      {/* Catatan Cepat (Quick Note) Card */}
+      <div className="bg-white dark:bg-slate-800/80 p-4.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4 transition-colors">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Zap className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+            <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+              CATATAN CEPAT (QUICK NOTE)
+            </h3>
+          </div>
+          <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-100/30">
+            Satu Langkah
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveQuickNote} className="space-y-3.5">
+          {/* Success Notification */}
+          {quickSuccess && (
+            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 p-2.5 rounded-xl flex items-center gap-2 animate-fade-in text-emerald-800 dark:text-emerald-300 text-[11px] font-bold">
+              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              <span>{quickSuccess}</span>
+            </div>
+          )}
+
+          {/* Type Selector Toggle */}
+          <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-900/50 p-1 rounded-xl border border-slate-100 dark:border-slate-800/50">
+            <button
+              type="button"
+              onClick={() => setQuickType('penjualan')}
+              className={`py-1.5 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider cursor-pointer ${
+                quickType === 'penjualan'
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              📈 Pemasukan (Jual)
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickType('pengeluaran')}
+              className={`py-1.5 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider cursor-pointer ${
+                quickType === 'pengeluaran'
+                  ? 'bg-rose-500 text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              📉 Pengeluaran (Beli)
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Amount Input */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                Nominal (Rp)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-xs font-black text-slate-400 dark:text-slate-500">
+                  Rp
+                </span>
+                <input
+                  type="text"
+                  required
+                  placeholder="0"
+                  value={quickAmount}
+                  onChange={handleAmountChange}
+                  className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs font-black text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Category Dropdown Selector */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                Kategori
+              </label>
+              <select
+                value={quickCategory}
+                onChange={(e) => setQuickCategory(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+              >
+                {typeCategories.map((c) => (
+                  <option key={c.id} value={c.name} className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs">
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Short Note / Catatan */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+              Catatan Singkat (Keterangan)
+            </label>
+            <input
+              type="text"
+              placeholder={quickType === 'penjualan' ? 'Contoh: Jual beras, isi pulsa...' : 'Contoh: Beli bensin, belanja kopi...'}
+              value={quickNotes}
+              onChange={(e) => setQuickNotes(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            />
+          </div>
+
+          {/* Submit Quick Button */}
+          <button
+            type="submit"
+            className={`w-full py-2.5 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5 ${
+              quickType === 'penjualan'
+                ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/10'
+                : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/10'
+            }`}
+          >
+            <Plus className="w-4 h-4" /> Simpan Catatan Cepat
+          </button>
+        </form>
       </div>
 
       {/* Quick Action Shortcuts */}
